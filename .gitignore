@@ -1,0 +1,25 @@
+# Data / outputs (never commit)
+Desktop/
+**/tempClaw/
+**/Processed/
+**/Raw/
+**/*.pdf
+**/*.xlsx
+**/*.xls
+**/*.numbers
+**/*.duckdb
+**/*.db
+**/*.mbox
+**/attachments/
+**/_extracted/
+
+# Generated large CSVs
+**/*.csv
+
+# Python
+__pycache__/
+.venv/
+*.pyc
+
+# macOS
+.DS_Store

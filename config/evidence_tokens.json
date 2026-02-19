@@ -1,0 +1,31 @@
+{
+  "gold_strings": [
+    "editora estelita",
+    "eduardo melo pereira",
+    "eduardo melo pereira ltda",
+    "eduardo melo pereira ltda (editora estelita)",
+    "eduardo melo pereira ltd (editora estelita)",
+    "estelita / lep music"
+  ],
+  "owned_name_hit_any": [
+    "tagore",
+    "ave sangria",
+    "trio nordestino"
+  ],
+  "owned_work_exceptions": [
+    {
+      "title": "eleanor rigby",
+      "note": "Owned-work exception; do not treat Beatles generally as owned."
+    }
+  ],
+  "negative_common_title_triggers": [
+    "macetando",
+    "vida loka",
+    "vermelho",
+    "brisa",
+    "deja vu",
+    "diana",
+    "beijinho no ombro",
+    "me chama"
+  ]
+}
