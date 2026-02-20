@@ -38,7 +38,8 @@ Implement **Gold/Silver/Bronze scorer with evidence flags** and run a first Forn
 ### IN PROGRESS (active run)
 - Improve reference evidence tokens (contributors/publishers) so we can do `ARTIST_TOKEN_OVERLAP` safely and unlock real matches (e.g., VIVRE LA VIE, NHEENGATU, BALMAIN, ZIRIGUIDUM).
   - DONE (first pass): added `scripts/enrich_reference_truth_tokens.py` to join PDF-block participant names into a local-only `reference_truth_enriched.csv` (ISRC join).
-  - Next step: repeat enrichment using **CLEAN XLSX** (OBRAS_CLEAN/FONOGRAMAS_CLEAN) for broader coverage beyond the first 20 PDF pages.
+  - DONE (second pass): added `scripts/enrich_reference_truth_from_clean_xlsx.py` to enrich evidence tokens from `Processed/OBRAS_CLEAN.xlsx` + `Processed/FONOGRAMAS_CLEAN.xlsx` (local-only output: `reference_truth_enriched_clean.csv`).
+  - Next step: use enriched truth as scorer default (config) and validate against known positives (VIVRE LA VIE / NHEENGATU / BALMAIN / ZIRIGUIDUM) on Band+SBT.
 
 ### NEXT checkpoints
 - **T+45–90 min:** enrich reference truth with participant tokens (from CLEAN XLSX or PDF blocks) + rerun Band/SBT pilot; expect >0 matches without title-only.
