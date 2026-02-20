@@ -20,15 +20,17 @@ Implement **Gold/Silver/Bronze scorer with evidence flags** and run a first Forn
 - non_empty_isrc: 249
 - non_empty_iswc: 3
 
+### DONE (since last status)
+- Scorer implemented + committed:
+  - `scripts/score_rows.py`
+  - `config/scoring_config.json`
+  - `docs/SCORING_RULES.md`
+  - `tests/fixtures.json` + `tests/test_scorer.py` (pytest)
+
 ### IN PROGRESS (active run)
-1) Add scorer:
-   - `scripts/score_rows.py`
-   - `tests/fixtures.json` (your positive/negative labeled cases)
-2) Define scorer contract doc:
-   - `docs/SCORING_RULES.md`
-3) Run first scoring pilot on 1–2 Fornecedores files (start with SBT unified + Band unified):
-   - outputs local-only under `runs/fornecedores/`
-   - copy a review CSV to `~/Desktop/tempClaw/`
+- Run first scoring pilot on 1–2 Fornecedores files (start with SBT unified + Band unified):
+  - outputs local-only under `runs/fornecedores/`
+  - copy a review CSV to `~/Desktop/tempClaw/`
 
 ### NEXT checkpoints
 - **T+45 min:** scorer + fixtures committed; scoring run produces first `runs/fornecedores/scored_rows.csv`.
