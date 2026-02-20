@@ -112,8 +112,15 @@ def score_one(row: dict, ref_idx: dict, cfg: dict) -> ScoreResult:
 
     evidence_flags: list[str] = []
 
-    # Gold token hit anywhere in row
-    row_text = norm_text(" ".join([title_raw, artist_blob] + [str(v) for v in row.values()]))
+    # Gold token hit in *content* fields only (never provenance like file paths)
+    content_fields = [
+        title_raw,
+        artist_blob,
+        str(row.get("publisher", "")),
+        str(row.get("editor", "")),
+        str(row.get("titular", "")),
+    ]
+    row_text = norm_text(" ".join(content_fields))
     gold_hits = [t for t in cfg["gold_tokens"] if t and t in row_text]
     if gold_hits:
         evidence_flags.append("GOLD_TOKEN_HIT")
@@ -189,7 +196,22 @@ def score_one(row: dict, ref_idx: dict, cfg: dict) -> ScoreResult:
                 ref_iswc=best.get("iswc"),
             )
         else:
-            # artist present but no supporting evidence => abstain
+            # otherwise abstain (conservative).
+            # Only allow title-only with artist present if the title is an explicit exception (e.g., ELEANOR RIGBY).
+            exceptions = set([norm_title(x) for x in cfg.get("title_only_exceptions", [])])
+            if title_norm in exceptions and "NEGATIVE_TITLE_TRIGGER" not in evidence_flags:
+                evidence_flags.append("TITLE_ONLY_EXCEPTION")
+                m = cands[0]
+                return ScoreResult(
+                    tier="Bronze",
+                    matched=True,
+                    ref_match_count=len(cands),
+                    evidence_flags=evidence_flags,
+                    ref_title_norm=m.get("title_norm"),
+                    ref_isrc=m.get("isrc"),
+                    ref_iswc=m.get("iswc"),
+                )
+
             evidence_flags.append("ARTIST_PRESENT_NO_SUPPORT")
             return ScoreResult(tier="NoMatch", matched=False, ref_match_count=len(cands), evidence_flags=evidence_flags)
 

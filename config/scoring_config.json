@@ -6,7 +6,6 @@
     "ave sangria",
     "trio nordestino",
     "cordel do fogo encantado",
-    "estelita",
     "editora estelita",
     "eduardo melo pereira"
   ],
@@ -18,6 +17,9 @@
     "diana",
     "beijinho no ombro",
     "me chama"
+  ],
+  "title_only_exceptions": [
+    "eleanor rigby"
   ],
   "min_title_len_for_bronze": 8
 }
