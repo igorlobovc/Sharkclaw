@@ -1,0 +1,23 @@
+{
+  "gold_tokens": [
+    "tagore",
+    "yago o próprio",
+    "yago o proprio",
+    "ave sangria",
+    "trio nordestino",
+    "cordel do fogo encantado",
+    "estelita",
+    "editora estelita",
+    "eduardo melo pereira"
+  ],
+  "negative_title_triggers": [
+    "macetando",
+    "vida loka",
+    "deja vu",
+    "déjà vu",
+    "diana",
+    "beijinho no ombro",
+    "me chama"
+  ],
+  "min_title_len_for_bronze": 8
+}

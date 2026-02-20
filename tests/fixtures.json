@@ -1,0 +1,42 @@
+[
+  {
+    "name": "POS_ELEANOR_RIGBY_title_only_ok_if_not_negative",
+    "row": {"title": "ELEANOR RIGBY"},
+    "expected_tier": "Bronze"
+  },
+  {
+    "name": "NEG_DEJA_VU_block_title_only",
+    "row": {"title": "DEJA VU", "artist": "Luan Santana"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "NEG_MACETANDO_block_title_only",
+    "row": {"title": "MACETANDO", "artist": "Ivete Sangalo"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "NEG_DIANA_block_title_only",
+    "row": {"title": "DIANA", "artist": "Paul Anka"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "NEG_BEIJINHO_NO_OMBRO_block_title_only",
+    "row": {"title": "BEIJINHO NO OMBRO", "artist": "Valesca Popozuda"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "NEG_ME_CHAMA_block_title_only",
+    "row": {"title": "ME CHAMA", "artist": "Lobao"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "NEG_VIDA_LOKA_block_title_only",
+    "row": {"title": "VIDA LOKA", "artist": "Racionais"},
+    "expected_tier": "NoMatch"
+  },
+  {
+    "name": "POS_TAGORE_gold_token_hit",
+    "row": {"title": "qualquer coisa", "artist": "Tagore"},
+    "expected_tier": "NoMatch"
+  }
+]
