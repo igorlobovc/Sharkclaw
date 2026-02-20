@@ -27,11 +27,17 @@ Implement **Gold/Silver/Bronze scorer with evidence flags** and run a first Forn
   - `docs/SCORING_RULES.md`
   - `tests/fixtures.json` + `tests/test_scorer.py` (pytest)
 
+### DONE (pilot run)
+- Ran basic extractor + scorer on:
+  - Band: `Raw/Fornecedores/Band/band UNIFICADO out dez 2023 jan fev 2024.xls`
+  - SBT:  `Raw/Fornecedores/SBT/Unificado SBT nov dez 23 e jan fev mar 24.xls`
+- Copied review CSV to: `~/Desktop/tempClaw/review_top300_matches.csv`
+
+**Pilot result (with conservative gates):** only 1 match surfaced (ELEANOR RIGBY) due to explicit exception rule.
+
 ### IN PROGRESS (active run)
-- Run first scoring pilot on 1–2 Fornecedores files (start with SBT unified + Band unified):
-  - outputs local-only under `runs/fornecedores/`
-  - copy a review CSV to `~/Desktop/tempClaw/`
+- Improve reference evidence tokens (contributors/publishers) so we can do `ARTIST_TOKEN_OVERLAP` safely and unlock real matches (e.g., VIVRE LA VIE, NHEENGATU, BALMAIN, ZIRIGUIDUM).
+  - Next step: enrich `reference_truth.csv` with participant/author tokens from OBRAS/FONOGRAMAS structured sources (CLEAN files) or PDF block participants.
 
 ### NEXT checkpoints
-- **T+45 min:** scorer + fixtures committed; scoring run produces first `runs/fornecedores/scored_rows.csv`.
-- **T+90–120 min:** tighten false-positive gates (artist/author overlap + denylist) and rerun pilot.
+- **T+45–90 min:** enrich reference truth with participant tokens (from CLEAN XLSX or PDF blocks) + rerun Band/SBT pilot; expect >0 matches without title-only.
