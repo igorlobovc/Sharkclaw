@@ -148,8 +148,14 @@ def main():
         raise SystemExit("No XLS/XLSX inputs found")
 
     dfs = []
+    failed = 0
     for inp in inputs:
-        df = extract_one_file(inp)
+        try:
+            df = extract_one_file(inp)
+        except Exception as e:
+            failed += 1
+            print(f"[skip] failed to parse: {inp} err={type(e).__name__}: {e}")
+            continue
         if len(df):
             dfs.append(df)
 
