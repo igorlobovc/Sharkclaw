@@ -1,11 +1,13 @@
 .PHONY: install lint test
 
+PY ?= python3
+
 install:
-	python -m pip install --upgrade pip
-	python -m pip install -r requirements.txt
+	$(PY) -m pip install --upgrade pip
+	$(PY) -m pip install -r requirements.txt
 
 lint:
-	ruff check .
+	$(PY) -m ruff check .
 
 test:
-	PYTHONPATH=. pytest -q
+	PYTHONPATH=. $(PY) -m pytest -q
