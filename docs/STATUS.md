@@ -31,9 +31,17 @@ Implement **Gold/Silver/Bronze scorer with evidence flags** and run a first Forn
 - Ran basic extractor + scorer on:
   - Band: `Raw/Fornecedores/Band/band UNIFICADO out dez 2023 jan fev 2024.xls`
   - SBT:  `Raw/Fornecedores/SBT/Unificado SBT nov dez 23 e jan fev mar 24.xls`
-- Copied review CSV to: `~/Desktop/tempClaw/review_top300_matches.csv`
+- Copied review CSVs to TempClaw for manual inspection.
 
 **Pilot result (with conservative gates):** only 1 match surfaced (ELEANOR RIGBY) due to explicit exception rule.
+
+### IMPORTANT LESSON (2026-02-21)
+We can get stuck in a "wrong loop" if we tune scoring when the pilot extracts don't even contain the known positives.
+
+**Mitigation (now standard):**
+1) Run `scripts/locate_known_titles.py` over the candidate fornecedor sources to confirm where the titles actually appear.
+2) Ensure extraction coverage includes those source files (or write a provider-specific extractor).
+3) Only then tune scoring/evidence.
 
 ### IN PROGRESS (active run)
 - Improve reference evidence tokens (contributors/publishers) so we can do `ARTIST_TOKEN_OVERLAP` safely and unlock real matches (e.g., VIVRE LA VIE, NHEENGATU, BALMAIN, ZIRIGUIDUM).
