@@ -77,7 +77,29 @@ def _infer_term_type(kind: str) -> str:
     return "TITLE"
 
 
-def load_sure_terms(path: Path) -> list[SureTerm]:
+def load_overrides(path: Path) -> dict[str, dict]:
+    """Load overrides keyed by normalized term."""
+
+    if not path.exists():
+        return {}
+    df = pd.read_csv(path, dtype=str, low_memory=False).fillna("")
+    df.columns = [c.strip().lower() for c in df.columns]
+    out: dict[str, dict] = {}
+    for _, r in df.iterrows():
+        term = str(r.get("term", "")).strip()
+        if not term:
+            continue
+        tn = norm(term)
+        out[tn] = {
+            "term_type_override": str(r.get("term_type_override", "")).strip().upper(),
+            "requires_coevidence": str(r.get("requires_coevidence", "")).strip(),
+            "max_hits": str(r.get("max_hits", "")).strip(),
+            "notes": str(r.get("notes", "")).strip(),
+        }
+    return out
+
+
+def load_sure_terms(path: Path, overrides: dict[str, dict] | None = None) -> list[SureTerm]:
     # Try normal CSV with headers first.
     try:
         df = pd.read_csv(path, dtype=str, low_memory=False).fillna("")
@@ -100,7 +122,16 @@ def load_sure_terms(path: Path) -> list[SureTerm]:
             if term_type not in {"TITLE", "PERSON", "ORG"}:
                 term_type = "TITLE"
 
-            terms.append(SureTerm(term=term, term_norm=norm(term), term_type=term_type))
+            tn = norm(term)
+            if overrides and tn in overrides:
+                o = overrides[tn]
+                tto = str(o.get("term_type_override", "")).strip().upper()
+                if tto == "DISABLE":
+                    continue
+                if tto in {"TITLE", "PERSON", "ORG"}:
+                    term_type = tto
+
+            terms.append(SureTerm(term=term, term_norm=tn, term_type=term_type))
 
     except Exception:
         # Backward compatibility: 1-column file without header.
@@ -110,7 +141,13 @@ def load_sure_terms(path: Path) -> list[SureTerm]:
             t = line.strip().strip("\ufeff")
             if not t:
                 continue
-            terms.append(SureTerm(term=t, term_norm=norm(t), term_type="TITLE"))
+            tn = norm(t)
+            if overrides and tn in overrides:
+                o = overrides[tn]
+                tto = str(o.get("term_type_override", "")).strip().upper()
+                if tto == "DISABLE":
+                    continue
+            terms.append(SureTerm(term=t, term_norm=tn, term_type="TITLE"))
 
     # de-dupe by (term_norm, term_type), prefer longer for regex stability
     uniq: dict[tuple[str, str], SureTerm] = {}
@@ -205,6 +242,7 @@ def main() -> None:
     ap.add_argument("--sure", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--summary-out", default="")
+    ap.add_argument("--overrides", default="config/sure_match_overrides.csv")
 
     ap.add_argument("--person-boundary", default="on", choices=["on", "off"], help="PERSON terms must match on token boundary")
     ap.add_argument(
@@ -222,7 +260,12 @@ def main() -> None:
     out_path = Path(args.out)
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    sure_terms = load_sure_terms(sure_path)
+    overrides_path = Path(args.overrides)
+    if not overrides_path.is_absolute():
+        overrides_path = (Path(__file__).resolve().parent.parent / overrides_path).resolve()
+    overrides = load_overrides(overrides_path)
+
+    sure_terms = load_sure_terms(sure_path, overrides=overrides)
     if not sure_terms:
         raise SystemExit("No sure terms found")
 
@@ -316,6 +359,77 @@ def main() -> None:
     min_tier = args.min_tier
     min_score = tier_score(min_tier)
     sub = sub[sub["score"] >= min_score]
+
+    # Apply term overrides for PERSON terms (requires_coevidence + max_hits)
+    # This is intentionally conservative: only applies to overrides that set those flags.
+    if overrides:
+        # build rank columns once
+        flags = sub.get("evidence_flags", "").astype(str)
+        sub["tier_weight"] = sub.get("match_tier", "").apply(tier_score)
+        sub["score_num"] = pd.to_numeric(sub.get("score", 0), errors="coerce").fillna(0).astype(int)
+        sub["has_id_evidence"] = (
+            sub.get("isrc", "").astype(str).str.strip().ne("")
+            | sub.get("iswc", "").astype(str).str.strip().ne("")
+            | sub.get("ref_isrc", "").astype(str).str.strip().ne("")
+            | sub.get("ref_iswc", "").astype(str).str.strip().ne("")
+        )
+        sub["has_title_exact"] = flags.str.contains("TITLE_EXACT", case=False, na=False)
+        sub["has_artist_overlap"] = flags.str.contains("ARTIST_TOKEN_OVERLAP", case=False, na=False)
+
+        # normalized person text to test specific term membership
+        person_txt = None
+        if "PERSON" in bucket_text:
+            person_txt = bucket_text["PERSON"].loc[sub.index]
+
+        def _rank_sort(d: pd.DataFrame) -> pd.DataFrame:
+            return d.sort_values(
+                ["tier_weight", "score_num", "has_id_evidence", "has_title_exact", "has_artist_overlap"],
+                ascending=[False, False, False, False, False],
+            )
+
+        keep_idx = set(sub.index)
+        for tnorm, o in overrides.items():
+            # apply only PERSON overrides
+            tto = str(o.get("term_type_override", "")).strip().upper()
+            if tto and tto not in {"PERSON"}:
+                continue
+
+            req = str(o.get("requires_coevidence", "")).strip()
+            max_hits = str(o.get("max_hits", "")).strip()
+            if not req and not max_hits:
+                continue
+            if person_txt is None:
+                continue
+
+            m = person_txt.astype(str).str.contains(re.escape(tnorm), na=False)
+            idx = sub.index[m]
+            if len(idx) == 0:
+                continue
+
+            d = sub.loc[idx].copy()
+            if req == "1":
+                evidence_ok = d["has_title_exact"] | d["has_artist_overlap"] | d["has_id_evidence"]
+                d = d[evidence_ok]
+
+            # remove all matching rows first, then re-add capped best rows
+            for i in idx:
+                if i in keep_idx:
+                    keep_idx.remove(i)
+
+            if len(d) == 0:
+                continue
+
+            d = _rank_sort(d)
+            if max_hits:
+                try:
+                    cap = int(max_hits)
+                    d = d.head(cap)
+                except Exception:
+                    pass
+
+            keep_idx.update(d.index.tolist())
+
+        sub = sub.loc[sorted(keep_idx)]
 
     out = pd.DataFrame(
         {
