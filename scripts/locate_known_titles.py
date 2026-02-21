@@ -116,9 +116,13 @@ def main() -> None:
     outp = Path(args.output)
     outp.parent.mkdir(parents=True, exist_ok=True)
 
-    df = pd.DataFrame([h.__dict__ for h in all_hits]).sort_values(
-        ["needle", "hit_count", "file"], ascending=[True, False, True]
-    )
+    if all_hits:
+        df = pd.DataFrame([h.__dict__ for h in all_hits]).sort_values(
+            ["needle", "hit_count", "file"], ascending=[True, False, True]
+        )
+    else:
+        df = pd.DataFrame(columns=["needle", "file", "sheet", "hit_count"])
+
     df.to_csv(outp, index=False)
     print(f"Scanned files={len(files)} needles={len(needles)} hits={len(df)}")
     print(f"Wrote: {outp}")

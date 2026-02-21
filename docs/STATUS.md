@@ -59,3 +59,7 @@ We can get stuck in a "wrong loop" if we tune scoring when the pilot extracts do
 
 ### NEXT checkpoints
 - **T+45–90 min:** enrich reference truth with participant tokens (from CLEAN XLSX or PDF blocks) + rerun Band/SBT pilot; expect >0 matches without title-only.
+
+## Test PR
+
+This is a small PR to validate the review workflow.
