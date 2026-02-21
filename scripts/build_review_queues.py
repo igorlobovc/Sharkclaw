@@ -96,8 +96,19 @@ def main() -> None:
     # controlled by overrides in the slice.
     kept_by_term = {}
     if args.sure:
-        from scripts.slice_scored_by_sure_terms import load_sure_terms, load_overrides, norm
+        # Local import helper (scripts/ isn't a package)
+        import importlib.util
         from pathlib import Path as _Path
+
+        slice_mod_path = _Path(__file__).resolve().parent / "slice_scored_by_sure_terms.py"
+        spec = importlib.util.spec_from_file_location("slice_scored_by_sure_terms", slice_mod_path)
+        assert spec and spec.loader
+        mod = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(mod)  # type: ignore
+
+        load_sure_terms = mod.load_sure_terms
+        load_overrides = mod.load_overrides
+        norm = mod.norm
 
         sure_path = _Path(args.sure)
         overrides_path = _Path(args.overrides)
