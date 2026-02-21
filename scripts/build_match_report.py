@@ -11,6 +11,7 @@ Outputs (in out-dir)
 - match_report_rows.csv
 - match_report_dedup.csv
 - match_report_suspects.csv
+- match_report_truth_gaps.csv
 
 Also supports generating an action sheet:
 - action_sheet.csv (all Gold + top 300 Silver, deduped)
@@ -179,19 +180,30 @@ def main() -> None:
     dedup_out = out_dir / "match_report_dedup.csv"
     dedup.to_csv(dedup_out, index=False)
 
-    # Suspects
+    # Evidence flags
     flags = rows.get("evidence_flags", "").astype(str)
     has_ref_id = rows.get("ref_isrc", "").astype(str).str.strip().ne("") | rows.get("ref_iswc", "").astype(str).str.strip().ne("")
-    has_any_id = (
-        rows.get("isrc", "").astype(str).str.strip().ne("")
-        | rows.get("iswc", "").astype(str).str.strip().ne("")
-        | has_ref_id
-    )
+    # has_any_id could be useful later for QC; currently unused.
     has_title_exact = flags.str.contains("TITLE_EXACT", case=False, na=False)
     has_artist_overlap = flags.str.contains("ARTIST_TOKEN_OVERLAP", case=False, na=False)
 
+    # Truth gaps: strong evidence but missing reference IDs
+    truth_gaps = rows[
+        (rows["tier"].str.lower().isin(["gold", "silver"]))
+        & has_title_exact
+        & has_artist_overlap
+        & (~has_ref_id)
+    ].copy()
+    truth_gaps_out = out_dir / "match_report_truth_gaps.csv"
+    truth_gaps[out_cols].to_csv(truth_gaps_out, index=False)
+
+    # Suspects: weak-evidence rows only (quality control)
     suspects = rows[
-        ((rows["tier"].str.lower().isin(["gold", "silver"])) & (~has_ref_id) & (~has_any_id))
+        (
+            rows["tier"].str.lower().isin(["gold", "silver"])
+            & (~has_title_exact)
+            & (~has_artist_overlap)
+        )
         | ((rows["tier"].str.lower() == "silver") & (~has_title_exact) & (~has_artist_overlap))
     ].copy()
 
@@ -200,19 +212,29 @@ def main() -> None:
 
     # Overview
     tier_counts = rows["tier"].value_counts().to_dict()
-    ref_ids = (rows.get("ref_isrc", "").astype(str).str.strip() + "|" + rows.get("ref_iswc", "").astype(str).str.strip())
-    unique_ref_ids = int((ref_ids != "|").sum())
+    ref_ids = rows.get("ref_isrc", "").astype(str).str.strip() + "|" + rows.get("ref_iswc", "").astype(str).str.strip()
+    nonempty_ref_id = ref_ids != "|"
+    unique_ref_id_key_count = int(ref_ids[nonempty_ref_id].nunique())
 
-    top_ref_ids = ref_ids[ref_ids != "|"] .value_counts().head(20)
+    unique_ref_title_norm_count = int(rows.get("matched_title", "").astype(str).str.strip().replace({"nan": ""}).ne("").sum())
+
+    top_ref_ids = ref_ids[nonempty_ref_id].value_counts().head(20)
 
     top_files_by_matches = rows["fornecedor_file"].value_counts().head(20)
     top_files_by_gold = rows[rows["tier"].str.lower() == "gold"]["fornecedor_file"].value_counts().head(20)
+
+    # Top ref titles by UNIQUE fornecedor_file count (breadth)
+    breadth = rows.copy()
+    breadth["matched_title_norm"] = breadth["matched_title"].map(norm)
+    breadth = breadth[breadth["matched_title_norm"].ne("")]
+    breadth_vc = breadth.groupby("matched_title_norm")["fornecedor_file"].nunique().sort_values(ascending=False).head(20)
 
     overview = []
     overview.append("# Match Report Overview\n")
     overview.append(f"- rows_in_sweep: {len(rows)}")
     overview.append("- matches_by_tier: " + ", ".join(f"{k}:{v}" for k, v in tier_counts.items()))
-    overview.append(f"- unique_ref_id_rows_nonempty: {unique_ref_ids}")
+    overview.append(f"- unique_ref_id_key_count: {unique_ref_id_key_count}")
+    overview.append(f"- unique_ref_title_norm_count: {unique_ref_title_norm_count}")
 
     overview.append("\n## Top 20 ref IDs (ref_isrc|ref_iswc)\n")
     for k, v in top_ref_ids.items():
@@ -225,6 +247,10 @@ def main() -> None:
     overview.append("\n## Top 20 fornecedor files by #Gold\n")
     for k, v in top_files_by_gold.items():
         overview.append(f"- {k}: {int(v)}")
+
+    overview.append("\n## Top 20 ref titles by UNIQUE fornecedor_file count (breadth)\n")
+    for t, c in breadth_vc.items():
+        overview.append(f"- {t}: {int(c)}")
 
     (out_dir / "match_report_overview.md").write_text("\n".join(overview) + "\n", encoding="utf-8")
 
