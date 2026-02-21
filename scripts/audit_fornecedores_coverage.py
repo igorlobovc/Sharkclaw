@@ -377,6 +377,7 @@ def main() -> None:
         lines.append(f"{k}={v}")
     summary_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
+    quarantine_dir.mkdir(parents=True, exist_ok=True)
     quarantine_index_path = quarantine_dir / "index.csv"
     if quarantine_index:
         with quarantine_index_path.open("w", newline="", encoding="utf-8") as f:
