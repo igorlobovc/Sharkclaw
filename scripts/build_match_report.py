@@ -216,7 +216,9 @@ def main() -> None:
     nonempty_ref_id = ref_ids != "|"
     unique_ref_id_key_count = int(ref_ids[nonempty_ref_id].nunique())
 
-    unique_ref_title_norm_count = int(rows.get("matched_title", "").astype(str).str.strip().replace({"nan": ""}).ne("").sum())
+    unique_ref_title_norm_count = int(
+        rows.get("matched_title", "").astype(str).str.strip().replace({"nan": ""}).map(norm).replace({"": None}).dropna().nunique()
+    )
 
     top_ref_ids = ref_ids[nonempty_ref_id].value_counts().head(20)
 
