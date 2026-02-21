@@ -1,22 +1,41 @@
 term,kind,tier,note
-"tagore",person,GOLD_TOKEN,"owned-name token (artist/author); sure match criteria"
-"yago o próprio",person,GOLD_TOKEN,"owned-name token"
-"yago o proprio",person,GOLD_TOKEN,"owned-name token"
-"yago oproprio",person,GOLD_TOKEN,"owned-name token"
-"cordel do fogo encantado",person,GOLD_TOKEN,"owned-name token"
-"cordel do fogo",person,GOLD_TOKEN,"owned-name token variant"
-"zero quatro",person,GOLD_TOKEN,"owned-name token (Fred Zero Quatro)"
-"dudu falcao",person,GOLD_TOKEN,"owned-name token"
-"dudu falcão",person,GOLD_TOKEN,"owned-name token"
-"eduardo falcao",person,GOLD_TOKEN,"owned-name token variant"
-"eduardo falcão",person,GOLD_TOKEN,"owned-name token variant"
-"jose paes de lira filho",person,GOLD_TOKEN,"top author/person to treat as sure hit"
-"henrique mendonça",person,GOLD_TOKEN,"top author/person to treat as sure hit"
-"editora estelita",entity,GOLD_TOKEN,"explicit ownership entity"
-"eduardo melo pereira",entity,GOLD_TOKEN,"explicit ownership entity"
-"VIVRE LA VIE",title,KNOWN_POSITIVE,"known positive title (must surface when present in fornecedor sources)"
-"NHEENGATU",title,KNOWN_POSITIVE,"known positive title"
-"BALMAIN",title,KNOWN_POSITIVE,"known positive title"
-"ZIRIGUIDUM",title,KNOWN_POSITIVE,"known positive title"
-"DEIXE QUEIMAR",title,KNOWN_POSITIVE,"known positive title (example)"
-"Quem É Essa Menina De Vermelho",title,KNOWN_POSITIVE,"known positive title (example)"
+editora estelita,entity,GOLD_TOKEN,explicit ownership entity
+eduardo melo pereira,entity,GOLD_TOKEN,explicit ownership entity
+cordel do fogo,person,GOLD_TOKEN,owned-name token variant
+cordel do fogo encantado,person,GOLD_TOKEN,owned-name token
+dudu falcao,person,GOLD_TOKEN,owned-name token
+dudu falcão,person,GOLD_TOKEN,owned-name token
+eduardo falcao,person,GOLD_TOKEN,owned-name token variant
+eduardo falcão,person,GOLD_TOKEN,owned-name token variant
+henrique mendonça,person,GOLD_TOKEN,top author/person to treat as sure hit
+jose paes de lira filho,person,GOLD_TOKEN,top author/person to treat as sure hit
+tagore,person,GOLD_TOKEN,owned-name token (artist/author); sure match criteria
+yago o proprio,person,GOLD_TOKEN,owned-name token
+yago o próprio,person,GOLD_TOKEN,owned-name token
+yago oproprio,person,GOLD_TOKEN,owned-name token
+zero quatro,person,GOLD_TOKEN,owned-name token (Fred Zero Quatro)
+BALMAIN,title,KNOWN_POSITIVE,known positive title
+DEIXE QUEIMAR,title,KNOWN_POSITIVE,known positive title (example)
+NHEENGATU,title,KNOWN_POSITIVE,known positive title
+Quem É Essa Menina De Vermelho,title,KNOWN_POSITIVE,known positive title (example)
+VIVRE LA VIE,title,KNOWN_POSITIVE,known positive title (must surface when present in fornecedor sources)
+ZIRIGUIDUM,title,KNOWN_POSITIVE,known positive title
+MARCONI DE SOUZA SANTOS,person,SURE_TERM,user-provided sure term (2026-02-21)
+SHEVCHENKO E ELLOCO,person,SURE_TERM,user-provided sure term (2026-02-21)
+Automotivo Solitude,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Bidê ou Balde,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Febre90s,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Kaya conky,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Marina Peralta,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+MC Draak,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+MC Pumapjl,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Mega do Trepa,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Murica,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+nexoanexo,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Olegário,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Punk Rock Hardcore Alto José do Pinho,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+School Rooftop Funk,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Set DJ Ws da Igrejinha,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+SonoTWS,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Vai Ser Só no Fodi Fodi,unknown,SURE_TERM,user-provided sure term (2026-02-21)
+Xereca de Mel,unknown,SURE_TERM,user-provided sure term (2026-02-21)
