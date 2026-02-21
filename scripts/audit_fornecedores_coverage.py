@@ -174,23 +174,33 @@ class ProbeResult:
     parse_exception: str
     header_hit: bool
     sheetname_hit: bool
+    csv_encoding: str = ""
+    csv_sep: str = ""
 
 
-def probe_csv(path: Path, header_terms: set[str]) -> ProbeResult:
-    try:
-        df = pd.read_csv(path, dtype=str, nrows=25, low_memory=False)
-        cols = [norm(c) for c in df.columns]
-        header_hit = any(any(t in c for c in cols) for t in header_terms)
-        return ProbeResult(
-            sheets_count=1,
-            sample_sheet_names="csv",
-            parse_status="ok",
-            parse_exception="",
-            header_hit=header_hit,
-            sheetname_hit=False,
-        )
-    except Exception as e:
-        return ProbeResult(0, "", "error", f"{type(e).__name__}: {e}", False, False)
+def probe_csv(path: Path, header_terms: set[str], *, encodings: list[str], seps: list[str]) -> ProbeResult:
+    last_err = ""
+    for enc in encodings:
+        for sep in seps:
+            try:
+                df = pd.read_csv(path, dtype=str, nrows=25, low_memory=False, encoding=enc, sep=sep)
+                cols = [norm(c) for c in df.columns]
+                header_hit = any(any(t in c for c in cols) for t in header_terms)
+                return ProbeResult(
+                    sheets_count=1,
+                    sample_sheet_names="csv",
+                    parse_status="ok",
+                    parse_exception="",
+                    header_hit=header_hit,
+                    sheetname_hit=False,
+                    csv_encoding=enc,
+                    csv_sep=repr(sep),
+                )
+            except Exception as e:
+                last_err = f"{type(e).__name__}: {e}"
+                continue
+
+    return ProbeResult(0, "", "error", last_err, False, False, "", "")
 
 
 def probe_excel(path: Path, header_terms: set[str], sheet_terms: set[str], max_sheets: int, max_rows: int) -> ProbeResult:
@@ -311,6 +321,8 @@ def main() -> None:
                         "sample_sheet_names": "",
                         "parse_status": "n/a",
                         "exception": "",
+                        "csv_encoding": "",
+                        "csv_sep": "",
                     }
                 )
                 continue
@@ -327,15 +339,27 @@ def main() -> None:
                         "sample_sheet_names": "",
                         "parse_status": "n/a",
                         "exception": "",
+                        "csv_encoding": "",
+                        "csv_sep": "",
                     }
                 )
                 continue
 
             # probe
             if ext == "csv":
-                pr = probe_csv(p, header_terms)
-            elif ext in {"xls", "xlsx", "xlsm", "xlsb"}:
+                pr = probe_csv(p, header_terms, encodings=["utf-8", "utf-8-sig", "latin-1"], seps=[",", ";", "\t"])
+            elif ext == "tsv":
+                # treat TSV as CSV with tab sep
+                pr = probe_csv(p, header_terms, encodings=["utf-8", "utf-8-sig", "latin-1"], seps=["\t", ",", ";"])
+            elif ext in {"xls", "xlsx", "xlsm"}:
                 pr = probe_excel(p, header_terms, sheet_terms, max_sheets=max_sheets, max_rows=max_rows)
+            elif ext == "xlsb":
+                # pandas needs optional engine (pyxlsb). If missing, classify as requiring dependency.
+                try:
+                    import pyxlsb  # noqa: F401
+                    pr = probe_excel(p, header_terms, sheet_terms, max_sheets=max_sheets, max_rows=max_rows)
+                except Exception as e:
+                    pr = ProbeResult(0, "", "error", f"xlsb_requires_dependency: {type(e).__name__}: {e}", False, False)
             elif ext == "zip":
                 pr = probe_zip(p)
             else:
@@ -355,6 +379,8 @@ def main() -> None:
                         "sample_sheet_names": pr.sample_sheet_names,
                         "parse_status": pr.parse_status,
                         "exception": pr.parse_exception,
+                        "csv_encoding": pr.csv_encoding,
+                        "csv_sep": pr.csv_sep,
                     }
                 )
                 continue
@@ -373,6 +399,8 @@ def main() -> None:
                         "sample_sheet_names": pr.sample_sheet_names,
                         "parse_status": pr.parse_status,
                         "exception": "",
+                        "csv_encoding": pr.csv_encoding,
+                        "csv_sep": pr.csv_sep,
                     }
                 )
                 continue
@@ -388,6 +416,8 @@ def main() -> None:
                     "sample_sheet_names": pr.sample_sheet_names,
                     "parse_status": pr.parse_status,
                     "exception": "",
+                    "csv_encoding": pr.csv_encoding,
+                    "csv_sep": pr.csv_sep,
                 }
             )
 
