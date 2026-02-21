@@ -2,8 +2,7 @@
 
 include_roots:
   - /Users/igorcunha/Desktop/Estelita_backup/Estelita/Raw/Fornecedores
-  - /Users/igorcunha/Desktop/Estelita_Exports/Takeout
-  - /Users/igorcunha/.openclaw/workspace/estelita_unified_audiovisual
+  - /Users/igorcunha/.openclaw/workspace/estelita_unified_audiovisual/dedup/unique
 
 include_ext:
   - xlsx

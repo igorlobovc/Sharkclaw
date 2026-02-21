@@ -1,0 +1,28 @@
+# Fornecedor source exclusions (globs)
+# Purpose: remove duplicates / non-fornecedor exports and enforce canonical source lanes.
+# One glob per line.
+
+# Explicit duplicate markers
+**/*__dup1.*
+**/*__dup2.*
+
+# Staged duplicate lanes
+**/estelita_unified_audiovisual/staged/retidos/**
+**/estelita_unified_audiovisual/staged/sync/**
+
+# Canonical lane enforcement: prefer dedup/unique/** over staged/manual and Takeout copies
+**/estelita_unified_audiovisual/staged/manual_raw_fornecedores/**
+**/Desktop/Estelita_Exports/Takeout/**
+
+# Review/export copies (keep one canonical source elsewhere)
+**/Estelita_Exports/Takeout/Fornecedores/**/_review_audiovisual_*/**
+**/Estelita_Exports/Takeout/Fornecedores_Inbox/**/_review_audiovisual_*/**
+
+# Financeiro sweep area (not fornecedor usage reports)
+**/Estelita_Exports/Takeout/Financeiro/**
+
+# Takeout Inbox UNKNOWN (often internal/financial; revisit later)
+**/Estelita_backup/Estelita/Raw/Fornecedores/Takeout_Inbox/**
+
+# MBOX inbox mirror copies
+**/Estelita_backup/Estelita/Raw/Fornecedores/MBOX_Fornecedores_Inbox/**
