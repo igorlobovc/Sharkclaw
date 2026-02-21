@@ -31,3 +31,7 @@ __pycache__/
 # Local runs
 runs/
 
+
+# Allow committed small test fixtures
+!tests/fixtures/**/*.csv
+!tests/fixtures/**/*.txt
