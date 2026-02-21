@@ -103,7 +103,10 @@ def main() -> None:
         slice_mod_path = _Path(__file__).resolve().parent / "slice_scored_by_sure_terms.py"
         spec = importlib.util.spec_from_file_location("slice_scored_by_sure_terms", slice_mod_path)
         assert spec and spec.loader
+        import sys
+
         mod = importlib.util.module_from_spec(spec)
+        sys.modules[spec.name] = mod  # needed for dataclass/type resolution
         spec.loader.exec_module(mod)  # type: ignore
 
         load_sure_terms = mod.load_sure_terms
