@@ -8,7 +8,9 @@ include_roots:
 include_ext:
   - xlsx
   - xls
+  - xlsb
   - csv
+  - tsv
   - zip
 
 # Reuse the existing excludes (globs)
