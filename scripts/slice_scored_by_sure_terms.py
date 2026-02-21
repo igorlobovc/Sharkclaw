@@ -163,10 +163,40 @@ def _bucket_fields(df: pd.DataFrame) -> dict[str, list[str]]:
 
 
 def _compile_pat(terms: list[SureTerm], term_type: str) -> re.Pattern | None:
-    t = [st.term for st in terms if st.term_type == term_type]
+    t = [st.term_norm for st in terms if st.term_type == term_type]
+    t = [x for x in t if x]
     if not t:
         return None
+    # We match against *normalized* row text, so compile from normalized terms.
     return re.compile("|".join(re.escape(x) for x in t), flags=re.IGNORECASE)
+
+
+def _compile_person_pats(
+    terms: list[SureTerm], *, boundary: bool, single_token_requires_evidence: bool
+) -> tuple[re.Pattern | None, re.Pattern | None]:
+    """Return (multi_token_pat, single_token_pat) over normalized terms."""
+
+    person_terms = [st.term_norm for st in terms if st.term_type == "PERSON" and st.term_norm]
+    if not person_terms:
+        return None, None
+
+    multi = sorted({t for t in person_terms if " " in t}, key=len, reverse=True)
+    single = sorted({t for t in person_terms if " " not in t}, key=len, reverse=True)
+
+    def wrap(tok: str) -> str:
+        if not boundary:
+            return re.escape(tok)
+        # token boundary on normalized text: avoid matching inside alnum words
+        return rf"(?<![0-9a-z]){re.escape(tok)}(?![0-9a-z])"
+
+    multi_pat = re.compile("|".join(wrap(t) for t in multi), flags=re.IGNORECASE) if multi else None
+    single_pat = re.compile("|".join(wrap(t) for t in single), flags=re.IGNORECASE) if single else None
+
+    # if single_token gating is off, treat single-token as regular hits
+    if not single_token_requires_evidence:
+        return multi_pat, single_pat
+
+    return multi_pat, single_pat
 
 
 def main() -> None:
@@ -175,6 +205,16 @@ def main() -> None:
     ap.add_argument("--sure", required=True)
     ap.add_argument("--out", required=True)
     ap.add_argument("--summary-out", default="")
+
+    ap.add_argument("--person-boundary", default="on", choices=["on", "off"], help="PERSON terms must match on token boundary")
+    ap.add_argument(
+        "--person-single-token-requires-evidence",
+        default="on",
+        choices=["on", "off"],
+        help="If PERSON term is a single token, require co-evidence",
+    )
+    ap.add_argument("--min-tier", default="Silver", choices=["Gold", "Silver", "Bronze", "NoMatch"], help="Minimum match tier to include")
+
     args = ap.parse_args()
 
     scored_path = Path(args.scored)
@@ -204,19 +244,61 @@ def main() -> None:
         # normalize
         bucket_text[btype] = s.map(norm)
 
-    # compile regex per type (we match on normalized strings, but terms are matched with
-    # case-insensitive regex; accent stripping happens on the row side.
-    pats = {t: _compile_pat(sure_terms, t) for t in ["TITLE", "PERSON", "ORG"]}
+    # compile regex per type (matches against normalized row text)
+    title_pat = _compile_pat(sure_terms, "TITLE")
+    org_pat = _compile_pat(sure_terms, "ORG")
+
+    boundary_on = args.person_boundary == "on"
+    single_token_requires_evidence = args.person_single_token_requires_evidence == "on"
+    person_multi_pat, person_single_pat = _compile_person_pats(
+        sure_terms, boundary=boundary_on, single_token_requires_evidence=single_token_requires_evidence
+    )
 
     hits_by_type = {"TITLE": 0, "PERSON": 0, "ORG": 0}
 
     masks = []
-    for ttype in ["TITLE", "PERSON", "ORG"]:
-        if pats[ttype] is None or ttype not in bucket_text:
-            continue
-        m = bucket_text[ttype].str.contains(pats[ttype], na=False)
-        hits_by_type[ttype] = int(m.sum())
-        masks.append(m)
+
+    # TITLE
+    if title_pat is not None and "TITLE" in bucket_text:
+        m_title = bucket_text["TITLE"].str.contains(title_pat, na=False)
+        hits_by_type["TITLE"] = int(m_title.sum())
+        masks.append(m_title)
+    else:
+        m_title = pd.Series([False] * len(df))
+
+    # ORG
+    if org_pat is not None and "ORG" in bucket_text:
+        m_org = bucket_text["ORG"].str.contains(org_pat, na=False)
+        hits_by_type["ORG"] = int(m_org.sum())
+        masks.append(m_org)
+    else:
+        m_org = pd.Series([False] * len(df))
+
+    # PERSON with gating
+    if "PERSON" in bucket_text and (person_multi_pat is not None or person_single_pat is not None):
+        txt = bucket_text["PERSON"]
+        m_person_multi = txt.str.contains(person_multi_pat, na=False) if person_multi_pat is not None else pd.Series([False] * len(df))
+        m_person_single = txt.str.contains(person_single_pat, na=False) if person_single_pat is not None else pd.Series([False] * len(df))
+
+        # co-evidence for single-token person terms
+        if single_token_requires_evidence:
+            flags = df.get("evidence_flags", "").astype(str)
+            has_title_exact = flags.str.contains("TITLE_EXACT", case=False, na=False)
+            has_artist_overlap = flags.str.contains("ARTIST_TOKEN_OVERLAP", case=False, na=False)
+            has_id = (
+                df.get("isrc", "").astype(str).str.strip().ne("")
+                | df.get("iswc", "").astype(str).str.strip().ne("")
+                | df.get("ref_isrc", "").astype(str).str.strip().ne("")
+                | df.get("ref_iswc", "").astype(str).str.strip().ne("")
+            )
+            evidence_ok = has_title_exact | has_artist_overlap | has_id
+            m_person_single = m_person_single & evidence_ok
+
+        m_person = m_person_multi | m_person_single
+        hits_by_type["PERSON"] = int(m_person.sum())
+        masks.append(m_person)
+    else:
+        m_person = pd.Series([False] * len(df))
 
     if masks:
         mask_any = masks[0]
@@ -229,6 +311,11 @@ def main() -> None:
 
     # compute numeric score
     sub["score"] = sub.get("match_tier", "").apply(tier_score)
+
+    # min-tier filter
+    min_tier = args.min_tier
+    min_score = tier_score(min_tier)
+    sub = sub[sub["score"] >= min_score]
 
     out = pd.DataFrame(
         {
