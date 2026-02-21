@@ -1,0 +1,47 @@
+# Fornecedores inclusion rules (configurable)
+
+include_roots:
+  - /Users/igorcunha/Desktop/Estelita_backup/Estelita/Raw/Fornecedores
+  - /Users/igorcunha/Desktop/Estelita_Exports/Takeout
+  - /Users/igorcunha/.openclaw/workspace/estelita_unified_audiovisual
+
+include_ext:
+  - xlsx
+  - xls
+  - csv
+  - zip
+
+# Reuse the existing excludes (globs)
+exclude_globs_file: config/fornecedores_exclude_globs.txt
+
+# Minimum heuristics: at least one must be true
+minimum_heuristics:
+  header_any_of:
+    - title
+    - obra
+    - isrc
+    - iswc
+    - artista
+    - interprete
+    - intérprete
+    - autor
+    - authors
+    - composer
+    - publisher
+  sheet_name_any_of:
+    - ubem
+    - relatorio
+    - relatório
+    - solicitacao
+    - solicitação
+    - cue
+    - cue sheet
+    - mcs
+    - canais globo
+    - globo
+    - globoplay
+
+# How deep to sample inside a workbook
+sampling:
+  max_sheets: 5
+  max_rows_per_sheet: 25
