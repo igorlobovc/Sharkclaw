@@ -43,6 +43,14 @@ We can get stuck in a "wrong loop" if we tune scoring when the pilot extracts do
 2) Ensure extraction coverage includes those source files (or write a provider-specific extractor).
 3) Only then tune scoring/evidence.
 
+### NEW (2026-02-21): Persistent sure-match catalog + regression harness
+- Canonical expanding list of "sure terms" / known positives (user-provided):
+  - `config/sure_match_catalog.csv`
+- Regression case builder (option 2: allow missing-from-truth alerts):
+  - `scripts/build_regression_cases.py`
+- Regression checker/report:
+  - `scripts/check_regression_cases.py`
+
 ### IN PROGRESS (active run)
 - Improve reference evidence tokens (contributors/publishers) so we can do `ARTIST_TOKEN_OVERLAP` safely and unlock real matches (e.g., VIVRE LA VIE, NHEENGATU, BALMAIN, ZIRIGUIDUM).
   - DONE (first pass): added `scripts/enrich_reference_truth_tokens.py` to join PDF-block participant names into a local-only `reference_truth_enriched.csv` (ISRC join).
