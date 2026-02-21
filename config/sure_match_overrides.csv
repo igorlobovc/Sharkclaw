@@ -1,0 +1,3 @@
+term,term_type_override,requires_coevidence,max_hits,notes
+cordel do fogo,PERSON,1,5000,"too common in artist; require co-evidence and cap"
+cordel do fogo encantado,PERSON,1,5000,"too common in artist; require co-evidence and cap"

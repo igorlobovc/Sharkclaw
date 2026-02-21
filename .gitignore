@@ -18,6 +18,7 @@ Desktop/
 
 # Allow committed small config CSVs
 !config/sure_match_catalog.csv
+!config/sure_match_overrides.csv
 
 # Python
 __pycache__/
