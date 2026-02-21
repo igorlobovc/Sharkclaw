@@ -79,7 +79,7 @@ def parse_lines(lines):
             # find LIBERADO or similar
             for j,x in enumerate(la):
                 if x.strip().upper() in {'LIBERADO','BLOQUEADO','SUSPENSO'}:
-                    situ=x.strip().upper();
+                    situ = x.strip().upper()
                     # title is likely next non-empty non-noise token after status
                     for y in la[j+1:]:
                         yy=y.strip()
@@ -128,7 +128,8 @@ def parse_lines(lines):
                 # name = first non-numeric
                 for t in buf:
                     if not t.isdigit() and not PCT_RE.search(t):
-                        name=t; break
+                        name = t
+                        break
                 # pseudo = next non-numeric non-pct different from name
                 if name:
                     for t in buf[buf.index(name)+1:]:

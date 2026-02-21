@@ -89,7 +89,6 @@ def parse_fonogramas_clean(path: Path) -> tuple[dict[str, set[str]], dict[str, s
     for _, r in df.iterrows():
         # Observed column layout (0-based) in CLEAN sheet:
         # 0: blank, 1: work_ecad_code, 2: ISRC, 3: situacao, 5: title
-        c0 = r[0] if 0 in r.index else ""
         c1 = r[1] if 1 in r.index else ""
         c2 = r[2] if 2 in r.index else ""
         c3 = r[3] if 3 in r.index else ""
