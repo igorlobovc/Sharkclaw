@@ -1,0 +1,20 @@
+{
+  "truth_path": "/Users/igorcunha/.openclaw/workspace/Sharkclaw/runs/reference/reference_truth_enriched_clean.csv",
+  "total_rows": 1007,
+  "unique_titles": 979,
+  "unique_isrc": 249,
+  "unique_iswc": 3,
+  "rows_with_any_id": 252,
+  "rows_with_artist_tokens": 8,
+  "rows_with_author_tokens": 0,
+  "rows_with_publisher_tokens": 4,
+  "columns": [
+    "title_raw",
+    "title_norm",
+    "iswc",
+    "isrc",
+    "source",
+    "source_detail",
+    "evidence_tokens"
+  ]
+}

@@ -31,7 +31,14 @@ __pycache__/
 # Local runs
 runs/
 
+# Allow specific small run artifacts (keep the rest ignored)
+!runs/
+!runs/reference/
 
 # Allow committed small test fixtures
 !tests/fixtures/**/*.csv
 !tests/fixtures/**/*.txt
+
+# Allow committed small reference audit artifacts
+!runs/reference/catalog_size.json
+!runs/reference/catalog_size.txt
