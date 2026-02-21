@@ -66,59 +66,85 @@ def norm(s: str) -> str:
 
 
 def parse_simple_yaml(path: Path) -> dict:
-    """Parse minimal YAML subset for this config.
+    """Parse minimal YAML subset for this config (lists + 1-level nested dicts).
 
-    Supports:
-    - key: value
-    - key: (then indented list)
-      - item
-    - nested dict via indentation (2 spaces)
+    Enough for:
+    - include_roots: [ - ... ]
+    - include_ext: [ - ... ]
+    - exclude_globs_file: scalar
+    - minimum_heuristics: { header_any_of: [..], sheet_name_any_of: [..] }
+    - sampling: { max_sheets: x, max_rows_per_sheet: y }
 
     Not a general YAML parser.
     """
 
     root: dict = {}
-    stack: list[tuple[int, dict]] = [(0, root)]
-    current_key = None
+    cur_map_stack: list[tuple[int, dict]] = [(0, root)]
+    cur_list_key_stack: list[tuple[int, dict, str]] = []  # (indent, map, key)
 
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.rstrip("\n")
-        if not line.strip() or line.strip().startswith("#"):
+    def current_map(indent: int) -> dict:
+        while cur_map_stack and indent < cur_map_stack[-1][0]:
+            cur_map_stack.pop()
+        return cur_map_stack[-1][1] if cur_map_stack else root
+
+    lines = path.read_text(encoding="utf-8").splitlines()
+    i = 0
+    while i < len(lines):
+        raw = lines[i]
+        i += 1
+        if not raw.strip() or raw.strip().startswith("#"):
             continue
 
-        indent = len(line) - len(line.lstrip(" "))
-        line = line.strip()
+        indent = len(raw) - len(raw.lstrip(" "))
+        line = raw.strip()
 
-        # unwind stack
-        while stack and indent < stack[-1][0]:
-            stack.pop()
-        if not stack:
-            stack = [(0, root)]
+        m = current_map(indent)
 
-        cur = stack[-1][1]
-
+        # list item
         if line.startswith("-"):
             item = line[1:].strip()
-            if current_key is None:
+            # find nearest list context with smaller indent
+            while cur_list_key_stack and indent < cur_list_key_stack[-1][0]:
+                cur_list_key_stack.pop()
+            if not cur_list_key_stack:
                 continue
-            if not isinstance(cur.get(current_key), list):
-                cur[current_key] = []
-            cur[current_key].append(item)
+            _, lm, lk = cur_list_key_stack[-1]
+            lm[lk].append(item)
             continue
 
-        if ":" in line:
-            key, val = line.split(":", 1)
-            key = key.strip()
-            val = val.strip()
-            current_key = key
-            if val == "":
-                # start nested dict
-                cur[key] = {}
-                stack.append((indent + 2, cur[key]))
-                current_key = None
-            else:
-                # scalar
-                cur[key] = val
+        # key: value
+        if ":" not in line:
+            continue
+
+        key, val = line.split(":", 1)
+        key = key.strip()
+        val = val.strip()
+
+        if val != "":
+            # scalar
+            m[key] = val
+            continue
+
+        # val empty: decide if this is a list or a nested dict by peeking next non-empty
+        j = i
+        nxt = None
+        while j < len(lines):
+            if lines[j].strip() and not lines[j].strip().startswith("#"):
+                nxt = lines[j]
+                break
+            j += 1
+
+        if nxt is not None:
+            nxt_indent = len(nxt) - len(nxt.lstrip(" "))
+            nxt_line = nxt.strip()
+            if nxt_indent > indent and nxt_line.startswith("-"):
+                m[key] = []
+                cur_list_key_stack.append((indent + 1, m, key))
+                continue
+
+        # default: nested dict
+        m[key] = {}
+        cur_map_stack.append((indent + 2, m[key]))
 
     return root
 
