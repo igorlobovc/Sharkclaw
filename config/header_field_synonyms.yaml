@@ -9,8 +9,6 @@ title:
   - titulo original do episodio
   - musica
   - nome da musica
-  - autores da musica
-  - titulares
   - repertorio
   - obra
   - obra musica
@@ -21,9 +19,9 @@ artist:
   - interprete
 
 author:
+  - autores da musica
   - autor
   - compositor es das trilhas do programa
-  - autores da musica
   - autores
   - compositor
   - compositores
@@ -46,16 +44,16 @@ isrc:
 iswc:
 
 amount_value:
-  - valor a pagar editora
 
 currency:
 
 percent_split:
 
 rightsholder_owner:
+  - titulares
+  - valor a pagar editora
   - editora
   - percentual a pagar editora
-  - titulares
   - titular
   - direitos
   - editoras
@@ -67,4 +65,3 @@ publisher_editor:
 work_id:
 
 recording_id:
-
