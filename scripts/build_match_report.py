@@ -174,11 +174,14 @@ def main() -> None:
     # ALWAYS_MATCH_POLICY: TOP entities + previously reviewed matches
     top_path = Path(__file__).resolve().parent.parent / "config/top_estelita_entities.csv"
     top_entities = load_top_entities(top_path)
+    # Expand searched fields: scan common people/entity columns and any column whose header
+    # suggests it may contain names/entities.
     top_hits, top_stats = compute_entity_override_hits(
         rows,
         top_entities,
         search_fields=["artist", "author", "publisher", "owner"],
-        evidence_field_aliases=[],
+        evidence_field_aliases=["evidence_flags", "evidence_tokens"],
+        include_columns_matching=r"artista|autor|compositor|interprete|int[ée]rprete|titular|particip|editora|publisher|owner|direito|obra|produtor|produc|observ|notas|repert[óo]rio|nome_",
     )
 
     # rename TOP columns
@@ -314,6 +317,52 @@ def main() -> None:
     lines.append("breakdown_by_hit_field=" + ",".join(f"{k}:{v}" for k, v in sorted(hb.items(), key=lambda x: x[1], reverse=True)))
 
     (out_dir / "top_entity_matches_summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # Field coverage + raw variants audit
+    # top_entity_field_coverage.csv: per entity stats + top source columns
+    if len(top_stats):
+        top_stats.to_csv(out_dir / "top_entity_field_coverage.csv", index=False)
+
+    # top_entity_raw_variants.csv: collect distinct raw forms observed for each entity
+    variants = []
+    if len(top_entities):
+        # scan the same columns we scanned for hits
+        cols_scanned = [
+            c
+            for c in rows.columns
+            if re.search(
+                r"artista|autor|compositor|interprete|int[ée]rprete|titular|particip|editora|publisher|owner|direito|obra|produtor|produc|observ|notas|repert[óo]rio|nome_",
+                str(c),
+                flags=re.IGNORECASE,
+            )
+        ]
+        cols_scanned += [c for c in ["artist", "author", "publisher", "owner", "evidence_flags", "evidence_tokens"] if c in rows.columns]
+        cols_scanned = list(dict.fromkeys(cols_scanned))
+
+        for ent in top_entities:
+            ent_norm = ent.entity_norm
+            # rows where this entity hit
+            m = rows.get("top_entity_entities", "").astype(str).str.contains(ent_norm, na=False)
+            if not int(m.sum()):
+                continue
+            sub = rows.loc[m, cols_scanned].copy()
+            seen = set()
+            for c in cols_scanned:
+                for v in sub[c].dropna().astype(str).tolist():
+                    if not v.strip():
+                        continue
+                    # only keep variants that plausibly contain the entity tokens
+                    if ent_norm.replace(" ", "") not in norm(v).replace(" ", ""):
+                        continue
+                    vv = v.strip()
+                    if vv in seen:
+                        continue
+                    seen.add(vv)
+                    variants.append({"entity_norm": ent_norm, "source_column": c, "raw_variant": vv})
+                    if len(seen) >= 50:
+                        break
+
+    pd.DataFrame(variants).to_csv(out_dir / "top_entity_raw_variants.csv", index=False)
 
     # Dedup report
     d = rows.copy()

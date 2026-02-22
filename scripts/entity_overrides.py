@@ -31,21 +31,35 @@ def strip_accents(s: str) -> str:
     return "".join(ch for ch in s if not unicodedata.combining(ch))
 
 
-_PUNCT_EDGE = re.compile(r"^[\W_]+|[\W_]+$")
+_NON_ALNUM = re.compile(r"[^0-9a-z]+")
 _WS = re.compile(r"\s+")
 
 
 def norm_text(s: str) -> str:
+    """Normalize a string for safe matching.
+
+    - casefold
+    - strip accents
+    - convert any non-alphanumeric to space
+    - collapse whitespace
+    """
+
     s = "" if s is None else str(s)
-    s = strip_accents(s.casefold().strip())
-    s = _PUNCT_EDGE.sub("", s)
-    s = _WS.sub(" ", s)
+    s = strip_accents(s.casefold())
+    s = _NON_ALNUM.sub(" ", s)
+    s = _WS.sub(" ", s).strip()
     return s
 
 
 def tokenize_norm(s: str) -> list[str]:
     s = norm_text(s)
-    return [t for t in re.split(r"[^0-9a-z]+", s) if t]
+    return [t for t in s.split(" ") if t]
+
+
+def joined_norm(s: str) -> str:
+    """Joined token form (no spaces) for matching 'DuduFalcao'-style strings."""
+
+    return "".join(tokenize_norm(s))
 
 
 @dataclass(frozen=True)
@@ -142,9 +156,20 @@ def entity_matches_field(entity: EntityOverride, field_value: str) -> bool:
     toks = entity.tokens
     if not toks:
         return False
+
+    # Token-set match (preferred)
     s = field_token_set(field_value)
-    # require all tokens
-    return all(t in s for t in toks)
+    if all(t in s for t in toks):
+        return True
+
+    # Joined-form match (for priority>=4 entities) to catch 'DuduFalcao' cases.
+    if entity.priority >= 4:
+        jt = joined_norm(field_value)
+        je = "".join(toks)
+        if je and je in jt:
+            return True
+
+    return False
 
 
 def compute_entity_override_hits(
@@ -153,6 +178,7 @@ def compute_entity_override_hits(
     *,
     search_fields: list[str],
     evidence_field_aliases: list[str] | None = None,
+    include_columns_matching: str = "",
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
     """Return (rows_with_added_cols, per-entity stats dataframe).
 
@@ -161,6 +187,9 @@ def compute_entity_override_hits(
     - entity_override_best_priority
     - entity_override_entities (semicolon list)
     - entity_override_hit_fields (semicolon 'entity@field')
+
+    If include_columns_matching is set, any column whose header matches the regex
+    is also scanned.
 
     Does NOT change tier here.
     """
@@ -172,6 +201,14 @@ def compute_entity_override_hits(
     # normalize search field availability
     available_fields = [f for f in search_fields if f in out.columns]
     available_fields += [f for f in evidence_field_aliases if f in out.columns and f not in available_fields]
+
+    if include_columns_matching:
+        rx = re.compile(include_columns_matching, re.IGNORECASE)
+        for c in out.columns:
+            if c in available_fields:
+                continue
+            if rx.search(str(c)):
+                available_fields.append(c)
 
     hit_entities: list[list[str]] = [[] for _ in range(len(out))]
     hit_fields: list[list[str]] = [[] for _ in range(len(out))]
