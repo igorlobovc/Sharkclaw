@@ -21,6 +21,25 @@ Key artifacts:
   - `match_report_truth_gaps.csv`
   - `action_sheet.csv`
 
+## Detection/triage (known-good template mapping) — current phase
+
+**Guardrails (active):** NO ZIP expansion. NO scoring/threshold/sweep/entity-promotion changes. Detection/triage/documentation only.
+
+- Repo HEAD: `0a5b384`
+- Canon2 report package: `~/Desktop/TempClaw/_canon2_20260221_1925/report_package/`
+
+Artifacts regenerated/copied into canon2 report_package:
+- `known_good_template_set.csv` (regenerated)
+- `header_synonym_inventory.csv` (regenerated)
+- `known_good_mapping_audit_v1.csv` + `known_good_mapping_audit_v1_summary.txt` (copied from prior runs/reference)
+- `known_good_failures_triage_v1.csv` (copied from prior runs/reference)
+- `known_good_mapping_audit_v2.csv` + `known_good_mapping_audit_v2_summary.txt` (regenerated)
+- `known_good_failures_triage_v2.csv` (regenerated)
+
+**v2 detection result:** templates_total=59; title AND (artist OR author)=23; pct=0.390
+
+Main failing bucket (by notes): overwhelmingly `missing_title_detect;missing_artist_author_detect` on UBEM/Relatorio sheets and "Tabela de Sincronização" variants.
+
 ## Milestones
 
 ### DONE
