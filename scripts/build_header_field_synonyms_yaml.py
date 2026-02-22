@@ -34,7 +34,8 @@ CRITICAL = {
 
 def norm_list(items: list[str]) -> list[str]:
     # basic normalize similar to field_detection.norm_header (avoid importing)
-    import re, unicodedata
+    import re
+    import unicodedata
 
     def strip_accents(s: str) -> str:
         s = unicodedata.normalize("NFKD", s)

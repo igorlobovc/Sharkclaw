@@ -33,7 +33,6 @@ Audit-only: does not change scoring/sweep.
 from __future__ import annotations
 
 import argparse
-import os
 import re
 import unicodedata
 from collections import Counter, defaultdict
@@ -96,6 +95,25 @@ CANDIDATE_COL_RX = re.compile(
 ROW_BLOB_SHEET_RX = re.compile(r"ubem|relat|mcs|cue|canais\s*globo", re.IGNORECASE)
 
 TARGET_PROVIDERS = {"ubem", "globo", "globoplay", "deezer", "una"}
+
+# Provider guess (for ROW_BLOB fallback gating)
+_PROVIDER_RX = [
+    ("band", re.compile(r"\bband\b|bandeirantes", re.I)),
+    ("sbt", re.compile(r"\bsbt\b", re.I)),
+    ("globo", re.compile(r"\bglobo\b|canais globo|globonews", re.I)),
+    ("globoplay", re.compile(r"globoplay", re.I)),
+    ("ubem", re.compile(r"ubem", re.I)),
+    ("deezer", re.compile(r"deezer", re.I)),
+    ("una", re.compile(r"\buna\b", re.I)),
+]
+
+
+def guess_provider(path: str) -> str:
+    s = str(path)
+    for name, rx in _PROVIDER_RX:
+        if rx.search(s):
+            return name
+    return "other"
 
 
 def looks_like_contributor_list(values: list[str]) -> bool:
@@ -268,10 +286,6 @@ def main() -> None:
             except Exception:
                 continue
 
-            # Track if we ever scanned any candidate cols for this file
-            file_had_candidate = False
-            file_scanned_cols = False
-
             for sh, df in sheets:
                 cols = [str(c) for c in df.columns]
 
@@ -292,9 +306,6 @@ def main() -> None:
                 cand_cols = list(dict.fromkeys(cand_cols))[:50]
 
                 if cand_cols:
-                    file_had_candidate = True
-                    file_scanned_cols = True
-
                     # scan each entity within candidate cols
                     for ent in entities:
                         cap = args.hits_cap_per_entity_per_file
