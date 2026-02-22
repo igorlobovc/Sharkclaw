@@ -36,9 +36,27 @@ Artifacts regenerated/copied into canon2 report_package:
 - `known_good_mapping_audit_v2.csv` + `known_good_mapping_audit_v2_summary.txt` (regenerated)
 - `known_good_failures_triage_v2.csv` (regenerated)
 
-**v2 detection result:** templates_total=59; title AND (artist OR author)=23; pct=0.390
+**v2 detection result (unfiltered):** templates_total=59; title AND (artist OR author)=23; pct=0.390
 
-Main failing bucket (by notes): overwhelmingly `missing_title_detect;missing_artist_author_detect` on UBEM/Relatorio sheets and "Tabela de Sincronização" variants.
+### Known-good definition fix: expected playlog subset
+We split the 59 templates into expected playlogs vs non-playlogs so the KPI is meaningful.
+
+- Classifier outputs (canon2 report_package):
+  - `known_good_templates_classified.csv`
+  - `known_good_templates_expected_playlog.csv`
+  - `known_good_templates_non_playlog.csv`
+  - `known_good_templates_classified_summary.txt`
+
+**Classifier counts:** total=59; expected_playlog=29; non_playlog=30
+
+**Playlog-only mapping audit:** templates_total=29; title AND (artist OR author)=23; pct=0.793
+
+Main remaining failing bucket (playlog-only): UBEM sheets failing both title + artist/author detection.
+
+Band “TV Aberta” investigation note:
+- Representative sheet inspected: `Tabela de Sincronização Band...` / sheet `TV Aberta`.
+- It is a *rates/price table*, not a row-level playlog (no title/artist/author headers).
+- Inspect output: `~/Desktop/TempClaw/_canon2_20260221_1925/report_package/band_tv_aberta_header_inspect.txt`
 
 ## Milestones
 
