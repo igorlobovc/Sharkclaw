@@ -1,24 +1,38 @@
 #!/usr/bin/env python3
-"""Entity frequency audit across included fornecedor candidates (NO ZIP).
+"""Entity frequency audit across included fornecedor candidates (NO ZIP), v2.
 
 Goal
-- Prove whether low TOP_ENTITY counts are due to extraction/field coverage vs true absence.
+- Prove whether low TOP_ENTITY counts (e.g., Dudu Falcão) are due to extraction/field coverage vs true absence.
 
 Inputs
 - coverage_report.csv (from audit_fornecedores_coverage.py)
 - fixed entity list (normalized / variants collapse)
 
-Behavior
-- Filter coverage to included=Y and structured files only (.xls/.xlsx/.csv/.tsv; .xlsb only if engine available)
-- Probe: sample up to N sheets and M rows per sheet (read column headers + small row sample)
-- Match entities token-boundary, accent-insensitive.
+Strategy (deep-but-cheap)
+- Filter coverage to included=Y and structured only (.xls/.xlsx/.csv/.tsv; .xlsb only if supported).
+- For XLS/XLSX/XLSB:
+  - list sheet names
+  - for each sheet, read headers to detect candidate columns
+  - if candidate columns exist: scan ONLY those columns for up to N rows (default 20,000)
+    (stop early per entity if desired via --hits-cap-per-entity)
+  - if candidate columns do NOT exist: fallback to scanning title/obra columns only for long titles (len>=12)
+    (does not attempt to find entities; records stop_reason)
+- For CSV/TSV:
+  - encoding/sep fallbacks
+  - scan only candidate columns if present; else skip
 
-Outputs (written into report_package of the run):
+Matching
+- Token-boundary (all entity tokens present), accent-insensitive.
+- For priority>=4 entities, also allow joined-form match (e.g., DuduFalcao).
+
+Outputs (written into out-dir)
 - top_entity_field_coverage.csv
 - top_entity_file_hits.csv
 - top_entity_raw_variants.csv (capped)
+- top_entity_sampling_coverage.txt
+- top_entity_zero_reasons.csv
 
-This script is audit-only: it does not change scoring.
+Audit-only: does not change scoring/sweep.
 """
 
 from __future__ import annotations
@@ -80,7 +94,6 @@ def default_entities() -> list[Entity]:
     Variants are collapsed into the canonical entity_norm.
     """
 
-    # Canonical entity norms + priorities (>=4 also gets joined-form matching)
     items = [
         ("editora estelita", 5),
         ("eduardo melo pereira", 5),
@@ -109,7 +122,6 @@ def default_entities() -> list[Entity]:
 
 
 def entity_match_in_text(ent: Entity, text: str) -> bool:
-    # token-boundary (require all tokens)
     toks = ent.tokens
     if not toks:
         return False
@@ -118,7 +130,6 @@ def entity_match_in_text(ent: Entity, text: str) -> bool:
     if all(t in tset for t in toks):
         return True
 
-    # joined-form for priority>=4 (catch DuduFalcao)
     if ent.priority >= 4:
         jt = joined_norm(text)
         if ent.joined and ent.joined in jt:
@@ -127,11 +138,20 @@ def entity_match_in_text(ent: Entity, text: str) -> bool:
     return False
 
 
-# --- probing ---
 LIKELY_COL_RX = re.compile(
     r"artista|autor|compositor|interprete|int[ée]rprete|titular|particip|editora|publisher|owner|direito|obra|t[íi]tulo|title|nome_",
     re.IGNORECASE,
 )
+
+TITLE_COL_RX = re.compile(r"obra|t[íi]tulo|title", re.IGNORECASE)
+
+
+def detect_candidate_columns(columns: list[str]) -> list[str]:
+    return [c for c in columns if LIKELY_COL_RX.search(str(c))]
+
+
+def detect_title_columns(columns: list[str]) -> list[str]:
+    return [c for c in columns if TITLE_COL_RX.search(str(c))]
 
 
 def guess_provider(path: str) -> str:
@@ -149,8 +169,7 @@ def guess_provider(path: str) -> str:
     return "other"
 
 
-def probe_csv(path: Path, *, max_rows: int) -> tuple[list[str], pd.DataFrame]:
-    # Try a few encoding/sep combos
+def probe_csv(path: Path, *, max_rows: int) -> tuple[list[str], pd.DataFrame, str, str]:
     encs = ["utf-8", "utf-8-sig", "latin-1"]
     seps = [",", ";", "\t"]
     last = None
@@ -159,24 +178,11 @@ def probe_csv(path: Path, *, max_rows: int) -> tuple[list[str], pd.DataFrame]:
             try:
                 df = pd.read_csv(path, dtype=str, nrows=max_rows, low_memory=False, encoding=enc, sep=sep)
                 cols = [str(c) for c in df.columns]
-                return cols, df.fillna("")
+                return cols, df.fillna(""), enc, repr(sep)
             except Exception as e:
                 last = e
                 continue
     raise last or RuntimeError("csv probe failed")
-
-
-def probe_excel(path: Path, *, max_sheets: int, max_rows: int) -> tuple[list[str], dict[str, pd.DataFrame]]:
-    xl = pd.ExcelFile(path)
-    sheets = xl.sheet_names
-    out = {}
-    for sh in sheets[:max_sheets]:
-        try:
-            df = xl.parse(sh, dtype=str, nrows=max_rows).fillna("")
-            out[sh] = df
-        except Exception:
-            continue
-    return sheets, out
 
 
 def main() -> None:
@@ -184,8 +190,9 @@ def main() -> None:
     ap.add_argument("--coverage", required=True)
     ap.add_argument("--out-dir", required=True)
     ap.add_argument("--max-sheets", type=int, default=5)
-    ap.add_argument("--max-rows", type=int, default=25)
+    ap.add_argument("--max-rows", type=int, default=20000)
     ap.add_argument("--variants-cap", type=int, default=500)
+    ap.add_argument("--hits-cap-per-entity", type=int, default=200)
     args = ap.parse_args()
 
     coverage = Path(args.coverage).expanduser()
@@ -197,14 +204,12 @@ def main() -> None:
     cov = pd.read_csv(coverage, dtype=str, low_memory=False).fillna("")
     cov = cov[cov["included"] == "Y"].copy()
 
-    # structured only, NO ZIP
     def ext(p: str) -> str:
         return str(p).rsplit(".", 1)[-1].lower() if "." in str(p) else ""
 
     cov["ext"] = cov["file_path"].map(ext)
     cov = cov[cov["ext"].isin(["xls", "xlsx", "csv", "tsv", "xlsb"])].copy()
 
-    # XLSB only if supported
     have_pyxlsb = False
     try:
         import pyxlsb  # noqa: F401
@@ -215,14 +220,16 @@ def main() -> None:
     if not have_pyxlsb:
         cov = cov[cov["ext"] != "xlsb"].copy()
 
-    # stats accumulators
+    # accumulators
     ent_hit_count = Counter()
     ent_files = defaultdict(set)
     ent_field_counts = defaultdict(Counter)
-    ent_file_hits_rows = []
+    file_hits_rows = []
 
     variants_rows = []
     variants_seen = defaultdict(set)
+
+    sampling_rows = []
 
     total_files = len(cov)
 
@@ -233,60 +240,66 @@ def main() -> None:
 
         provider = r.get("provider_guess", "") or guess_provider(str(fp))
 
-        try:
-            if fp.suffix.lower() in {".csv", ".tsv"}:
-                cols, df = probe_csv(fp, max_rows=args.max_rows)
-                sheets = ["csv"]
-                sheet_dfs = {"csv": df}
-            else:
-                sheets, sheet_dfs = probe_excel(fp, max_sheets=args.max_sheets, max_rows=args.max_rows)
-        except Exception:
-            # ignore probe errors here; coverage audit already quarantines parse errors
-            continue
+        sheets_scanned = 0
+        rows_scanned = 0
+        columns_scanned = 0
+        stop_reason = "ok"
 
-        # choose columns to scan
-        # if we can detect likely columns, use them; otherwise scan all columns (still small sample)
-        for sh, sdf in sheet_dfs.items():
-            if sdf is None or sdf.empty:
+        # CSV/TSV
+        if fp.suffix.lower() in {".csv", ".tsv"}:
+            try:
+                cols, df, enc, sep = probe_csv(fp, max_rows=args.max_rows)
+            except Exception:
+                sampling_rows.append(
+                    {
+                        "file_path": str(fp),
+                        "sheets_scanned": 1,
+                        "rows_scanned": 0,
+                        "columns_scanned": 0,
+                        "stop_reason": "parse_error",
+                    }
+                )
                 continue
 
-            cols = [str(c) for c in sdf.columns]
-            likely_cols = [c for c in cols if LIKELY_COL_RX.search(c)]
-            scan_cols = likely_cols if likely_cols else cols
+            cand = detect_candidate_columns(cols)
+            if not cand:
+                sampling_rows.append(
+                    {
+                        "file_path": str(fp),
+                        "sheets_scanned": 1,
+                        "rows_scanned": min(len(df), args.max_rows),
+                        "columns_scanned": 0,
+                        "stop_reason": "no_candidate_columns",
+                    }
+                )
+                continue
 
-            # cap number of columns scanned to avoid pathological sheets
-            scan_cols = scan_cols[:50]
+            scan_cols = cand[:50]
+            try:
+                sdf = df[scan_cols].astype(str)
+            except Exception:
+                continue
 
-            # build raw sample values per column
-            col_samples = {}
-            for c in scan_cols:
-                try:
-                    ser = sdf[c].astype(str)
-                    # take first non-empty 10
-                    vals = [v for v in ser.tolist() if str(v).strip()][:10]
-                    col_samples[c] = vals
-                except Exception:
-                    continue
+            sheets_scanned = 1
+            rows_scanned = min(len(sdf), args.max_rows)
+            columns_scanned = len(scan_cols)
 
-            # scan
             for ent in entities:
+                if ent_hit_count[ent.entity_norm] >= args.hits_cap_per_entity:
+                    continue
                 hit_fields = []
                 sample_values = []
-                for c, vals in col_samples.items():
-                    # quick join search
-                    for v in vals:
+                for c in scan_cols:
+                    ser = sdf[c].tolist()[: args.max_rows]
+                    for v in ser:
+                        if not str(v).strip():
+                            continue
                         if entity_match_in_text(ent, v):
                             hit_fields.append(c)
-                            # collect variants
                             if len(variants_rows) < args.variants_cap and v not in variants_seen[ent.entity_norm]:
                                 variants_seen[ent.entity_norm].add(v)
                                 variants_rows.append(
-                                    {
-                                        "entity_norm": ent.entity_norm,
-                                        "source_column": c,
-                                        "raw_variant": v,
-                                        "file_path": str(fp),
-                                    }
+                                    {"entity_norm": ent.entity_norm, "source_column": c, "raw_variant": v, "file_path": str(fp)}
                                 )
                             if len(sample_values) < 3:
                                 sample_values.append(v)
@@ -297,8 +310,7 @@ def main() -> None:
                     ent_files[ent.entity_norm].add(str(fp))
                     for hf in hit_fields:
                         ent_field_counts[ent.entity_norm][hf] += 1
-
-                    ent_file_hits_rows.append(
+                    file_hits_rows.append(
                         {
                             "file_path": str(fp),
                             "provider_guess": provider,
@@ -309,7 +321,111 @@ def main() -> None:
                         }
                     )
 
-    # field coverage output
+            sampling_rows.append(
+                {
+                    "file_path": str(fp),
+                    "sheets_scanned": sheets_scanned,
+                    "rows_scanned": rows_scanned,
+                    "columns_scanned": columns_scanned,
+                    "stop_reason": stop_reason,
+                }
+            )
+            continue
+
+        # Excel
+        try:
+            xl = pd.ExcelFile(fp)
+            sheet_names = xl.sheet_names
+        except Exception:
+            sampling_rows.append(
+                {
+                    "file_path": str(fp),
+                    "sheets_scanned": 0,
+                    "rows_scanned": 0,
+                    "columns_scanned": 0,
+                    "stop_reason": "parse_error",
+                }
+            )
+            continue
+
+        for sh in sheet_names[: args.max_sheets]:
+            sheets_scanned += 1
+            try:
+                hdr = xl.parse(sh, dtype=str, nrows=0)
+                cols = [str(c) for c in hdr.columns]
+            except Exception:
+                continue
+
+            cand = detect_candidate_columns(cols)
+            if cand:
+                scan_cols = cand[:50]
+                try:
+                    sdf = xl.parse(sh, dtype=str, nrows=args.max_rows, usecols=scan_cols).fillna("")
+                except Exception:
+                    continue
+
+                columns_scanned += len(scan_cols)
+                rows_scanned += len(sdf)
+
+                for ent in entities:
+                    if ent_hit_count[ent.entity_norm] >= args.hits_cap_per_entity:
+                        continue
+                    hit_fields = []
+                    sample_values = []
+                    for c in scan_cols:
+                        ser = sdf[c].astype(str).tolist()
+                        for v in ser:
+                            if not str(v).strip():
+                                continue
+                            if entity_match_in_text(ent, v):
+                                hit_fields.append(c)
+                                if len(variants_rows) < args.variants_cap and v not in variants_seen[ent.entity_norm]:
+                                    variants_seen[ent.entity_norm].add(v)
+                                    variants_rows.append(
+                                        {"entity_norm": ent.entity_norm, "source_column": c, "raw_variant": v, "file_path": str(fp)}
+                                    )
+                                if len(sample_values) < 3:
+                                    sample_values.append(v)
+                                break
+
+                    if hit_fields:
+                        ent_hit_count[ent.entity_norm] += 1
+                        ent_files[ent.entity_norm].add(str(fp))
+                        for hf in hit_fields:
+                            ent_field_counts[ent.entity_norm][hf] += 1
+                        file_hits_rows.append(
+                            {
+                                "file_path": str(fp),
+                                "provider_guess": provider,
+                                "entity_norm": ent.entity_norm,
+                                "hit_fields": ";".join(sorted(set(hit_fields))),
+                                "sample_values": " | ".join(sample_values[:3]),
+                                "confidence": "HIGH" if len(hit_fields) >= 2 else "MED",
+                            }
+                        )
+            else:
+                title_cols = detect_title_columns(cols)
+                if title_cols:
+                    try:
+                        sdf = xl.parse(sh, dtype=str, nrows=args.max_rows, usecols=title_cols[:5]).fillna("")
+                        # long-title scan (debug only)
+                        _ = int((sdf.astype(str).applymap(len) >= 12).any(axis=1).sum())
+                        rows_scanned += len(sdf)
+                        columns_scanned += len(title_cols[:5])
+                    except Exception:
+                        continue
+
+        sampling_rows.append(
+            {
+                "file_path": str(fp),
+                "sheets_scanned": sheets_scanned,
+                "rows_scanned": rows_scanned,
+                "columns_scanned": columns_scanned,
+                "stop_reason": "ok" if columns_scanned else "no_candidate_columns",
+            }
+        )
+
+    # Outputs
     fc_rows = []
     for ent in entities:
         e = ent.entity_norm
@@ -330,14 +446,42 @@ def main() -> None:
     out_fc = out_dir / "top_entity_field_coverage.csv"
     out_hits = out_dir / "top_entity_file_hits.csv"
     out_vars = out_dir / "top_entity_raw_variants.csv"
+    out_sampling = out_dir / "top_entity_sampling_coverage.txt"
+    out_zero = out_dir / "top_entity_zero_reasons.csv"
 
     pd.DataFrame(fc_rows).sort_values(["files_hit_count", "hit_count"], ascending=[False, False]).to_csv(out_fc, index=False)
-    pd.DataFrame(ent_file_hits_rows).to_csv(out_hits, index=False)
+    pd.DataFrame(file_hits_rows).to_csv(out_hits, index=False)
     pd.DataFrame(variants_rows).head(args.variants_cap).to_csv(out_vars, index=False)
+
+    # sampling coverage text
+    lines = []
+    for sr in sampling_rows:
+        lines.append(
+            f"{sr['file_path']} | sheets_scanned={sr['sheets_scanned']} rows_scanned={sr['rows_scanned']} columns_scanned={sr['columns_scanned']} stop_reason={sr['stop_reason']}"
+        )
+    out_sampling.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+    # zero reasons
+    zrows = []
+    for ent in entities:
+        if ent_files.get(ent.entity_norm):
+            continue
+        zrows.append(
+            {
+                "entity_norm": ent.entity_norm,
+                "reason": "not_found_in_scanned_candidate_columns_or_skipped",
+                "files_scanned": total_files,
+                "max_rows_per_sheet": args.max_rows,
+                "max_sheets": args.max_sheets,
+            }
+        )
+    pd.DataFrame(zrows).to_csv(out_zero, index=False)
 
     print(f"Wrote: {out_fc}")
     print(f"Wrote: {out_hits}")
     print(f"Wrote: {out_vars}")
+    print(f"Wrote: {out_sampling}")
+    print(f"Wrote: {out_zero}")
     print(f"files_scanned={total_files}")
 
 
