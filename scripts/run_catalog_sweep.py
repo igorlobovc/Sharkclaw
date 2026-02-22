@@ -21,9 +21,14 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
+import sys
+
 import pandas as pd
 
-from scripts.entity_overrides import (
+# scripts/ is not a Python package; add it to sys.path for local imports
+sys.path.append(str(Path(__file__).resolve().parent))
+
+from entity_overrides import (  # noqa: E402
     apply_noisy_entity_controls,
     compute_entity_override_hits,
     load_entity_overrides,

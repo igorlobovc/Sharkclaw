@@ -28,9 +28,14 @@ import re
 import unicodedata
 from pathlib import Path
 
+import sys
+
 import pandas as pd
 
-from scripts.entity_overrides import compute_entity_override_hits, load_entity_overrides
+# scripts/ is not a Python package; add it to sys.path for local imports
+sys.path.append(str(Path(__file__).resolve().parent))
+
+from entity_overrides import compute_entity_override_hits, load_entity_overrides  # noqa: E402
 
 
 PROVIDERS = [
