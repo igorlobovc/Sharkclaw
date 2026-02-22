@@ -35,7 +35,7 @@ import pandas as pd
 # scripts/ is not a Python package; add it to sys.path for local imports
 sys.path.append(str(Path(__file__).resolve().parent))
 
-from entity_overrides import compute_entity_override_hits, load_entity_overrides  # noqa: E402
+from entity_overrides import compute_entity_override_hits, load_entity_overrides, load_top_entities  # noqa: E402
 
 
 PROVIDERS = [
@@ -171,6 +171,49 @@ def main() -> None:
     )
     rows = rows2
 
+    # ALWAYS_MATCH_POLICY: TOP entities + previously reviewed matches
+    top_path = Path(__file__).resolve().parent.parent / "config/top_estelita_entities.csv"
+    top_entities = load_top_entities(top_path)
+    top_hits, top_stats = compute_entity_override_hits(
+        rows,
+        top_entities,
+        search_fields=["artist", "author", "publisher", "owner"],
+        evidence_field_aliases=[],
+    )
+
+    # rename TOP columns
+    rows["top_entity_hit"] = top_hits["entity_override_hit"]
+    rows["top_entity_best_priority"] = top_hits["entity_override_best_priority"]
+    rows["top_entity_entities"] = top_hits["entity_override_entities"]
+    rows["top_entity_hit_fields"] = top_hits["entity_override_hit_fields"]
+
+    # previously reviewed (may be empty)
+    prev_path = Path(__file__).resolve().parent.parent / "config/previously_reviewed_matches.csv"
+    prev = pd.read_csv(prev_path, dtype=str, low_memory=False).fillna("") if prev_path.exists() else pd.DataFrame()
+
+    def _ref_id_key(df: pd.DataFrame) -> pd.Series:
+        return df.get("ref_isrc", "").astype(str).str.strip() + "|" + df.get("ref_iswc", "").astype(str).str.strip()
+
+    rows["match_reason"] = ""
+    rows["is_match"] = 0
+
+    # previously reviewed match by ref IDs (exact)
+    if len(prev):
+        prev_ids = set(
+            (
+                prev.get("ref_isrc", "").astype(str).str.strip() + "|" + prev.get("ref_iswc", "").astype(str).str.strip()
+            ).tolist()
+        )
+        rid = _ref_id_key(rows)
+        m_prev = rid.isin(prev_ids) & (rid != "|")
+        rows.loc[m_prev, "is_match"] = 1
+        rows.loc[m_prev, "match_reason"] = "PREVIOUSLY_REVIEWED"
+
+    # top entity hit forces match (bypass all gating)
+    m_top = rows["top_entity_hit"] == 1
+    rows.loc[m_top, "is_match"] = 1
+    rows.loc[m_top & (rows["match_reason"] == ""), "match_reason"] = "TOP_ENTITY"
+
     # Write match_report_rows.csv
     rows_out = out_dir / "match_report_rows.csv"
     out_cols = base_cols + [
@@ -206,6 +249,71 @@ def main() -> None:
             stats_df["tier_distribution"] = stats_df["entity_norm"].map(lambda e: tier_map.get(e, ""))
 
         stats_df.to_csv(out_dir / "entity_override_hit_counts.csv", index=False)
+
+    # ALWAYS_MATCH_POLICY outputs
+    # top_entity_matches.csv: all rows forced match by TOP_ENTITY or PREVIOUSLY_REVIEWED
+    forced = rows[rows["is_match"] == 1].copy()
+    forced["_k"] = forced["fornecedor_file"] + "||" + forced["sheet"] + "||" + forced["row_id"].astype(str)
+    forced_dedup = forced.drop_duplicates("_k")
+
+    forced_rank = compute_rank(forced_dedup)
+
+    forced_cols = [
+        "fornecedor_file",
+        "sheet",
+        "row_id",
+        "title",
+        "artist",
+        "author",
+        "matched_title",
+        "tier",
+        "evidence_flags",
+        "isrc",
+        "iswc",
+        "ref_isrc",
+        "ref_iswc",
+        "match_reason",
+        "top_entity_hit",
+        "top_entity_best_priority",
+        "top_entity_entities",
+        "top_entity_hit_fields",
+    ]
+    forced_cols = [c for c in forced_cols if c in forced_rank.columns]
+
+    (out_dir / "top_entity_matches.csv").write_text("", encoding="utf-8")
+    forced_rank[forced_cols].to_csv(out_dir / "top_entity_matches.csv", index=False)
+
+    # summary
+    lines = []
+    lines.append(f"total_rows={len(forced)}")
+    lines.append(f"dedup_rows={len(forced_dedup)}")
+    # match_reason breakdown
+    mr = forced["match_reason"].value_counts().to_dict()
+    lines.append("count_by_match_reason=" + ",".join(f"{k}:{v}" for k, v in mr.items()))
+
+    # top entities by count
+    ent_counts = {}
+    for s in forced.get("top_entity_entities", "").astype(str):
+        for e in [x for x in s.split(";") if x.strip()]:
+            ent_counts[e] = ent_counts.get(e, 0) + 1
+    top_ents = sorted(ent_counts.items(), key=lambda x: x[1], reverse=True)[:20]
+    lines.append("top_entities_by_count=" + "; ".join(f"{e}:{c}" for e, c in top_ents))
+
+    # top files by count
+    top_files = forced["fornecedor_file"].value_counts().head(10).to_dict()
+    lines.append("top_fornecedor_files_by_count=" + "; ".join(f"{f}:{c}" for f, c in top_files.items()))
+
+    # breakdown by hit_field
+    hb = {}
+    for s in forced.get("top_entity_hit_fields", "").astype(str):
+        for item in [x for x in s.split(";") if x.strip()]:
+            # entity@field
+            parts = item.split("@")
+            if len(parts) == 2:
+                hb[parts[1]] = hb.get(parts[1], 0) + 1
+    lines.append("breakdown_by_hit_field=" + ",".join(f"{k}:{v}" for k, v in sorted(hb.items(), key=lambda x: x[1], reverse=True)))
+
+    (out_dir / "top_entity_matches_summary.txt").write_text("\n".join(lines) + "\n", encoding="utf-8")
 
     # Dedup report
     d = rows.copy()

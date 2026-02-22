@@ -1,0 +1,11 @@
+entity_raw,entity_norm,entity_type,priority,notes
+Tagore,tagore,PERSON,5,Known Estelita represented
+Yago O Próprio,yago o proprio,PERSON,5,Known Estelita represented
+Yago O Proprio,yago o proprio,PERSON,5,Variant
+Yago Oproprio,yago oproprio,PERSON,5,Alt spelling
+Dudu Falcão,dudu falcao,PERSON,5,Known Estelita represented
+Dudu Falcao,dudu falcao,PERSON,5,Variant
+Zero Quatro,zero quatro,PERSON,5,Known Estelita represented
+Editora Estelita,editora estelita,ORG,5,Estelita org marker
+Eduardo Melo Pereira,eduardo melo pereira,PERSON,5,Owner/primary anchor
+Eduardo Melo Pereira LTDA,eduardo melo pereira ltda,ORG,5,Owner entity variant

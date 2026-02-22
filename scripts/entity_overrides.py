@@ -64,6 +64,8 @@ class EntityOverride:
 
 
 def load_entity_overrides(path: Path) -> list[EntityOverride]:
+    """Load the full override schema (includes coevidence/caps)."""
+
     df = pd.read_csv(path, dtype=str, low_memory=False).fillna("")
     df.columns = [c.strip().lower() for c in df.columns]
 
@@ -87,6 +89,40 @@ def load_entity_overrides(path: Path) -> list[EntityOverride]:
                 priority=pr,
                 requires_coevidence=rc,
                 per_term_cap=cap,
+                notes=notes,
+            )
+        )
+
+    # de-dupe by entity_norm
+    uniq = {}
+    for o in out:
+        uniq[o.entity_norm] = o
+    return list(uniq.values())
+
+
+def load_top_entities(path: Path) -> list[EntityOverride]:
+    """Load TOP entity list schema (no caps/co-evidence)."""
+
+    df = pd.read_csv(path, dtype=str, low_memory=False).fillna("")
+    df.columns = [c.strip().lower() for c in df.columns]
+
+    out: list[EntityOverride] = []
+    for _, r in df.iterrows():
+        raw = str(r.get("entity_raw", "")).strip()
+        en = str(r.get("entity_norm", "")).strip() or raw
+        if not raw:
+            continue
+        et = str(r.get("entity_type", "PERSON")).strip().upper() or "PERSON"
+        pr = int(str(r.get("priority", "0")).strip() or 0)
+        notes = str(r.get("notes", "")).strip()
+        out.append(
+            EntityOverride(
+                entity_raw=raw,
+                entity_norm=norm_text(en),
+                entity_type=et,
+                priority=pr,
+                requires_coevidence=0,
+                per_term_cap=None,
                 notes=notes,
             )
         )

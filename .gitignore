@@ -20,6 +20,8 @@ Desktop/
 !config/sure_match_catalog.csv
 !config/sure_match_overrides.csv
 !config/estelita_entity_overrides.csv
+!config/top_estelita_entities.csv
+!config/previously_reviewed_matches.csv
 
 # Python
 __pycache__/
