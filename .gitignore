@@ -37,6 +37,8 @@ runs/
 # Allow specific small run artifacts (keep the rest ignored)
 !runs/
 !runs/reference/
+# Re-ignore everything under runs/reference, then allowlist specific small artifacts
+runs/reference/*
 
 # Allow committed small test fixtures
 !tests/fixtures/**/*.csv
