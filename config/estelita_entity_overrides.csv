@@ -1,0 +1,27 @@
+entity_raw,entity_norm,entity_type,priority,requires_coevidence,per_term_cap,notes
+editora estelita,editora estelita,ORG,5,0,,Estelita org marker
+eduardo melo pereira,eduardo melo pereira,PERSON,5,0,,Owner/primary anchor
+dudu falcao,dudu falcao,PERSON,5,0,,Known Estelita represented
+dudu falcão,dudu falcao,PERSON,5,0,,Accent alias
+eduardo falcao,eduardo falcao,PERSON,4,0,,Related name; keep strong
+eduardo falcão,eduardo falcao,PERSON,4,0,,Accent alias
+henrique mendonça,henrique mendonca,PERSON,4,0,,Known Estelita represented
+jose paes de lira filho,jose paes de lira filho,PERSON,4,0,,Known Estelita represented
+tagore,tagore,PERSON,5,0,,Known Estelita represented
+yago o proprio,yago o proprio,PERSON,5,0,,Known Estelita represented
+yago o próprio,yago o proprio,PERSON,5,0,,Accent alias
+yago oproprio,yago oproprio,PERSON,5,0,,Alt spelling
+zero quatro,zero quatro,PERSON,5,0,,Known Estelita represented
+marconi de souza santos,marconi de souza santos,PERSON,3,0,,From user list
+shevchenko e elloco,shevchenko e elloco,PERSON,3,0,,From user list
+marina peralta,marina peralta,PERSON,4,0,,Artist
+febre90s,febre90s,PERSON,4,0,,Artist/project name
+mc pumapjl,mc pumapjl,PERSON,4,0,,Artist
+sonotws,sonotws,PERSON,3,0,,Artist/project name
+mc draak,mc draak,PERSON,4,0,,Artist
+bidê ou balde,bide ou balde,PERSON,4,0,,Band (normalize accents)
+kaya conky,kaya conky,PERSON,3,0,,Artist
+olegário,olegario,PERSON,3,0,,Name (normalize accents)
+nexoanexo,nexoanexo,PERSON,3,0,,Project/artist name
+cordel do fogo,cordel do fogo,PERSON,1,1,5000,TOO COMMON: require co-evidence + cap
+cordel do fogo encantado,cordel do fogo encantado,PERSON,1,1,5000,TOO COMMON: require co-evidence + cap

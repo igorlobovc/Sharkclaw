@@ -30,6 +30,8 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts.entity_overrides import compute_entity_override_hits, load_entity_overrides
+
 
 PROVIDERS = [
     ("band", re.compile(r"\bband\b|bandeirantes", re.I)),
@@ -153,10 +155,52 @@ def main() -> None:
 
     rows = compute_rank(sw[base_cols + ["provider_guess"]].copy())
 
+    # Entity override hits (audit)
+    ov_path = Path(__file__).resolve().parent.parent / "config/estelita_entity_overrides.csv"
+    overrides = load_entity_overrides(ov_path)
+    rows2, stats_df = compute_entity_override_hits(
+        rows,
+        overrides,
+        search_fields=["artist", "author", "publisher", "owner"],
+        evidence_field_aliases=["evidence_flags", "evidence_tokens"],
+    )
+    rows = rows2
+
     # Write match_report_rows.csv
     rows_out = out_dir / "match_report_rows.csv"
-    out_cols = base_cols + ["rank_key", "provider_guess"]
+    out_cols = base_cols + [
+        "rank_key",
+        "provider_guess",
+        "entity_override_hit",
+        "entity_override_best_priority",
+        "entity_override_entities",
+        "entity_override_hit_fields",
+    ]
+    out_cols = [c for c in out_cols if c in rows.columns]
     rows[out_cols].to_csv(rows_out, index=False)
+
+    # Entity override outputs (so we can verify quickly)
+    # entity_override_hits.csv: all rows with entity_override_hit=1, ranked best-first, dedup by row key
+    if "entity_override_hit" in rows.columns:
+        eh = rows[rows["entity_override_hit"] == 1].copy()
+        if len(eh):
+            eh["_k"] = eh["fornecedor_file"] + "||" + eh["sheet"] + "||" + eh["row_id"].astype(str)
+            eh = eh.drop_duplicates("_k")
+            eh = compute_rank(eh)
+            eh[out_cols].to_csv(out_dir / "entity_override_hits.csv", index=False)
+
+    # entity_override_hit_counts.csv
+    if len(stats_df):
+        # add tier distribution per entity
+        if "entity_override_entities" in rows.columns:
+            tier_map = {}
+            for ent in stats_df["entity_norm"].tolist():
+                m = rows["entity_override_entities"].astype(str).str.contains(ent, na=False)
+                vc = rows.loc[m, "tier"].value_counts().to_dict()
+                tier_map[ent] = ",".join(f"{k}:{v}" for k, v in vc.items())
+            stats_df["tier_distribution"] = stats_df["entity_norm"].map(lambda e: tier_map.get(e, ""))
+
+        stats_df.to_csv(out_dir / "entity_override_hit_counts.csv", index=False)
 
     # Dedup report
     d = rows.copy()

@@ -23,6 +23,12 @@ from pathlib import Path
 
 import pandas as pd
 
+from scripts.entity_overrides import (
+    apply_noisy_entity_controls,
+    compute_entity_override_hits,
+    load_entity_overrides,
+)
+
 
 def tier_weight(tier: str) -> int:
     t = str(tier or "").strip().lower()
@@ -67,15 +73,8 @@ def main() -> None:
 
     df = pd.read_csv(scored_path, dtype=str, low_memory=False, usecols=usecols).fillna("")
 
+    # Rank helpers
     df["tier_weight"] = df.get("match_tier", "").map(tier_weight)
-
-    # Keep only actual matches
-    df = df[df["tier_weight"] > 0]
-
-    # Rank best-first
-    df = df.sort_values(["tier_weight"], ascending=[False])
-
-    # Within same tier, prefer rows with more evidence flags and with IDs
     df["has_ref_id"] = df.get("ref_isrc", "").astype(str).str.strip().ne("") | df.get("ref_iswc", "").astype(str).str.strip().ne("")
     df["has_any_id"] = (
         df.get("isrc", "").astype(str).str.strip().ne("")
@@ -84,6 +83,48 @@ def main() -> None:
         | df.get("ref_iswc", "").astype(str).str.strip().ne("")
     )
     df["flags_len"] = df.get("evidence_flags", "").astype(str).str.len()
+
+    # Entity override layer (highest priority): include entity hits even if tier_weight==0,
+    # and enforce minimum Silver for priority>=4.
+    ov_path = Path(__file__).resolve().parent.parent / "config/estelita_entity_overrides.csv"
+    overrides = load_entity_overrides(ov_path)
+
+    df, stats_df = compute_entity_override_hits(
+        df,
+        overrides,
+        search_fields=["artist", "author", "publisher", "owner"],
+        evidence_field_aliases=["evidence_flags", "evidence_tokens"],
+    )
+
+    # Add evidence flag
+    def _append_flag(row):
+        if int(row.get("entity_override_hit", 0)) != 1:
+            return row.get("evidence_flags", "")
+        ents = str(row.get("entity_override_entities", "")).strip()
+        if not ents:
+            return row.get("evidence_flags", "")
+        # keep compact: add first 3
+        e3 = ";".join(ents.split(";")[:3])
+        base = str(row.get("evidence_flags", ""))
+        add = f"ENTITY_OVERRIDE_HIT:{e3}"
+        return (base + ";" + add).strip(";") if base else add
+
+    df["evidence_flags"] = df.apply(_append_flag, axis=1)
+
+    # Enforce min tier for priority>=4
+    df.loc[df["entity_override_best_priority"] >= 4, "tier_weight"] = df.loc[
+        df["entity_override_best_priority"] >= 4, "tier_weight"
+    ].clip(lower=2)
+
+    # Apply noisy entity controls (cordel etc.)
+    df = apply_noisy_entity_controls(
+        df,
+        overrides,
+        rank_cols=["tier_weight", "has_any_id", "flags_len"],
+    )
+
+    # Keep only matched rows after overrides (tier_weight>0)
+    df = df[df["tier_weight"] > 0]
 
     df = df.sort_values(["tier_weight", "has_ref_id", "has_any_id", "flags_len"], ascending=[False, False, False, False])
 
@@ -100,6 +141,10 @@ def main() -> None:
         "amount",
         "match_tier",
         "tier_weight",
+        "entity_override_hit",
+        "entity_override_best_priority",
+        "entity_override_entities",
+        "entity_override_hit_fields",
         "evidence_flags",
         "ref_title_norm",
         "ref_isrc",
