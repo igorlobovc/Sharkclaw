@@ -53,6 +53,12 @@ We split the 59 templates into expected playlogs vs non-playlogs so the KPI is m
 
 Main remaining failing bucket (playlog-only): UBEM sheets failing both title + artist/author detection.
 
+Latest playlog-only artifacts (canon2 report_package):
+- `known_good_mapping_audit_playlog.csv` + `known_good_mapping_audit_playlog_summary.txt`
+- `known_good_failures_triage_playlog.csv`
+- `known_good_mapping_audit_playlog_v2.csv` + `known_good_mapping_audit_playlog_v2_summary.txt`
+- `known_good_failures_triage_playlog_v2.csv`
+
 Band “TV Aberta” investigation note:
 - Representative sheet inspected: `Tabela de Sincronização Band...` / sheet `TV Aberta`.
 - It is a *rates/price table*, not a row-level playlog (no title/artist/author headers).
