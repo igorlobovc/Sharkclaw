@@ -30,6 +30,7 @@ sys.path.append(str(Path(__file__).resolve().parent))
 
 from entity_overrides import (  # noqa: E402
     apply_noisy_entity_controls,
+    classify_entity_override_mode,
     compute_entity_override_hits,
     load_entity_overrides,
 )
@@ -116,20 +117,44 @@ def main() -> None:
 
     df["evidence_flags"] = df.apply(_append_flag, axis=1)
 
-    # Enforce min tier for priority>=4
-    df.loc[df["entity_override_best_priority"] >= 4, "tier_weight"] = df.loc[
-        df["entity_override_best_priority"] >= 4, "tier_weight"
-    ].clip(lower=2)
+    # Classify entity override mode
+    df["entity_override_mode"] = ""
+    if "entity_override_hit" in df.columns:
+        m = df["entity_override_hit"] == 1
+        df.loc[m, "entity_override_mode"] = classify_entity_override_mode(df.loc[m])
 
-    # Apply noisy entity controls (cordel etc.)
+    # Promotions: do NOT auto-promote just because priority>=4.
+    # Only promote when entity hits AND has a song-level anchor.
+    # - ENTITY_PLUS_TITLE: allow min tier Silver
+    # - ENTITY_PLUS_ID: allow tiers as usual (no extra gating)
+    promoted = pd.Series([False] * len(df), index=df.index)
+
+    m_plus_title = df.get("entity_override_mode", "").astype(str).eq("ENTITY_PLUS_TITLE")
+    # ENTITY_PLUS_ID does not need special promotion; it is already a strong anchor.
+
+    # record original tier weight
+    df["original_tier_weight"] = df["tier_weight"]
+
+    df.loc[m_plus_title, "tier_weight"] = df.loc[m_plus_title, "tier_weight"].clip(lower=2)
+    promoted = promoted | (m_plus_title & (df["tier_weight"] > df["original_tier_weight"]))
+
+    # Apply noisy entity controls (cordel etc.) on entity-hit rows
     df = apply_noisy_entity_controls(
         df,
         overrides,
         rank_cols=["tier_weight", "has_any_id", "flags_len"],
     )
 
-    # Keep only matched rows after overrides (tier_weight>0)
+    # Keep only matched rows for sweep (tier_weight>0)
     df = df[df["tier_weight"] > 0]
+
+    # Add promotion columns
+    df["promoted_by_entity"] = 0
+    df.loc[df["tier_weight"] > df["original_tier_weight"], "promoted_by_entity"] = 1
+    df["promotion_reason"] = ""
+    df.loc[df["promoted_by_entity"] == 1, "promotion_reason"] = df.loc[
+        df["promoted_by_entity"] == 1, "entity_override_mode"
+    ]
 
     df = df.sort_values(["tier_weight", "has_ref_id", "has_any_id", "flags_len"], ascending=[False, False, False, False])
 
@@ -146,7 +171,11 @@ def main() -> None:
         "amount",
         "match_tier",
         "tier_weight",
+        "original_tier_weight",
+        "promoted_by_entity",
+        "promotion_reason",
         "entity_override_hit",
+        "entity_override_mode",
         "entity_override_best_priority",
         "entity_override_entities",
         "entity_override_hit_fields",

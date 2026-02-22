@@ -203,6 +203,44 @@ def compute_entity_override_hits(
     return out, stats_df
 
 
+def classify_entity_override_mode(df: pd.DataFrame) -> pd.Series:
+    """Classify entity override mode per row.
+
+    A) ENTITY_ONLY: entity hit but no title anchor
+    B) ENTITY_PLUS_TITLE: entity hit + title anchor
+    C) ENTITY_PLUS_ID: entity hit + any ID evidence
+
+    Title anchors (best-effort, based on existing columns):
+    - evidence_flags contains TITLE_EXACT or TITLE_NEAR
+    - OR matched_title / ref_title_norm nonempty
+    """
+
+    flags = df.get("evidence_flags", "").astype(str)
+    has_title_exact = flags.str.contains("TITLE_EXACT", case=False, na=False)
+    has_title_near = flags.str.contains("TITLE_NEAR", case=False, na=False)
+
+    matched_title = (
+        df.get("matched_title", "").astype(str)
+        if "matched_title" in df.columns
+        else df.get("ref_title_norm", "").astype(str)
+    )
+    has_matched_title = matched_title.str.strip().ne("")
+
+    has_title_anchor = has_title_exact | has_title_near | has_matched_title
+
+    has_id = (
+        df.get("isrc", "").astype(str).str.strip().ne("")
+        | df.get("iswc", "").astype(str).str.strip().ne("")
+        | df.get("ref_isrc", "").astype(str).str.strip().ne("")
+        | df.get("ref_iswc", "").astype(str).str.strip().ne("")
+    )
+
+    mode = pd.Series(["ENTITY_ONLY"] * len(df), index=df.index)
+    mode[has_title_anchor] = "ENTITY_PLUS_TITLE"
+    mode[has_id] = "ENTITY_PLUS_ID"
+    return mode
+
+
 def apply_noisy_entity_controls(
     df: pd.DataFrame,
     overrides: list[EntityOverride],
