@@ -114,12 +114,28 @@ def main() -> None:
             }
         )
 
+    out = Path(args.out).expanduser()
+    out.parent.mkdir(parents=True, exist_ok=True)
+
+    if not out_rows:
+        # write empty with stable columns
+        cols = [
+            "provider_guess",
+            "file",
+            "file_path",
+            "sheet",
+            "missing",
+            "expected_playlog",
+            "classification_reason",
+        ]
+        pd.DataFrame([], columns=cols).to_csv(out, index=False)
+        print(f"Wrote: {out} rows=0")
+        return
+
     out_df = pd.DataFrame(out_rows).sort_values(
         ["expected_playlog", "provider_guess", "file", "sheet"], ascending=[False, True, True, True]
     )
 
-    out = Path(args.out).expanduser()
-    out.parent.mkdir(parents=True, exist_ok=True)
     out_df.to_csv(out, index=False)
     print(f"Wrote: {out} rows={len(out_df)}")
 
