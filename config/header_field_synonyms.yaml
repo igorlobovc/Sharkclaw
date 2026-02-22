@@ -1,0 +1,70 @@
+# Auto-generated from header_synonym_inventory.csv
+
+title:
+  - tipo de musica
+  - titulo da obra musical
+  - titulo local
+  - titulo local do episodio
+  - titulo original
+  - titulo original do episodio
+  - musica
+  - nome da musica
+  - autores da musica
+  - titulares
+  - repertorio
+  - obra
+  - obra musica
+  - exibicao
+  - tocou
+
+artist:
+  - interprete
+
+author:
+  - autor
+  - compositor es das trilhas do programa
+  - autores da musica
+  - autores
+  - compositor
+  - compositores
+
+date:
+
+program:
+  - numero episodio capitulo
+  - categoria do programa programa novela
+  - numero programa
+  - programa
+
+network:
+
+episode:
+
+isrc:
+  - isrc
+
+iswc:
+
+amount_value:
+  - valor a pagar editora
+
+currency:
+
+percent_split:
+
+rightsholder_owner:
+  - editora
+  - percentual a pagar editora
+  - titulares
+  - titular
+  - direitos
+  - editoras
+  - publisher
+  - owner
+
+publisher_editor:
+
+work_id:
+
+recording_id:
+
