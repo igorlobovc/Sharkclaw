@@ -1,0 +1,15 @@
+_stage/
+extracted_samples/
+inventory_all/
+inventory_part*.csv
+takeout_master_manifest_*.csv
+*.parquet
+*.zip
+*.pdf
+*.xlsx
+*.xlsb
+*.xls
+*.csv
+*.jsonl
+*.log
+*.pid

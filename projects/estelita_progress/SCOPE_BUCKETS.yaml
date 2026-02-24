@@ -1,0 +1,21 @@
+# Buckets currently considered IN-SCOPE for music usage / cue sheet / sync / royalty / rights matching
+# (initial pass; can be expanded after first condensed CSV is produced)
+
+in_scope:
+  - Globo
+  - Globoplay
+  - SBT
+  - Record
+  - Band
+  - Aparecida
+  - CanalBrasil
+  - CueSheet
+  - Sincronizacao
+  - STRM
+  - ECAD
+  - UBC
+  - UBEM
+
+out_scope_notes:
+  - "Anything that looks like NFe/XML/PDF invoice traffic, accounting, contracts, generic admin"
+
